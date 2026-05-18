@@ -10,13 +10,14 @@ const links = {
   ],
   Empresa: [
     { href: "/contact", label: "Contacto" },
+    { href: "/trabaja-con-nosotros", label: "Trabajá con nosotros" },
     { href: "/about", label: "Sobre nosotros" },
     { href: "/login", label: "Iniciar sesión" },
   ],
   Legal: [
-    { href: "/legal/terms", label: "Términos" },
-    { href: "/legal/privacy", label: "Privacidad" },
-    { href: "/legal/cancellation", label: "Cancelación" },
+    { href: "/terminos", label: "Términos" },
+    { href: "/privacidad", label: "Privacidad" },
+    { href: "/cancelacion", label: "Cancelación" },
   ],
 };
 

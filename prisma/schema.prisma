@@ -11,6 +11,7 @@ datasource db {
 enum UserRole {
   USER
   ADMIN
+  SUPER_ADMIN
 }
 
 enum ReservationStatus {
@@ -21,16 +22,24 @@ enum ReservationStatus {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String?
-  email        String        @unique
-  passwordHash String?
-  role         UserRole      @default(USER)
-  reservations Reservation[]
-  reviews      Review[]
-  sessions     Session[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          UserRole  @default(USER)
+
+  reservations           Reservation[]
+  reviews                Review[]
+  sessions               Session[]
+  accounts               Account[]
+  passwordResetCodes     PasswordResetCode[]
+  emailVerificationCodes EmailVerificationCode[]
+  ownedCabins            Cabin[]                 @relation("CabinOwner")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Session {
@@ -40,6 +49,47 @@ model Session {
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Linked external identity (Google, etc.). One row per (provider, providerAccountId).
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model PasswordResetCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -61,12 +111,18 @@ model Cabin {
   rating           Float          @default(5)
   reviewCount      Int            @default(0)
   highlights       String[]       @default([])
+
+  ownerId          String
+  owner            User           @relation("CabinOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
   images           CabinImage[]
   amenities        CabinAmenity[]
   reservations     Reservation[]
   reviews          Review[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+
+  @@index([ownerId])
 }
 
 model CabinImage {

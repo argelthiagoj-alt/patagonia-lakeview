@@ -1,16 +1,28 @@
-import { CalendarCheck, CircleDollarSign, Home, Hourglass } from "lucide-react";
+import { CalendarCheck, CircleDollarSign, Home, Hourglass, ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
+import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
 
-async function loadMetrics() {
+async function loadMetrics(userId: string, viewAll: boolean) {
+  // For admins, "their" reservations = those on cabins they own.
+  const cabinFilter = viewAll ? undefined : { ownerId: userId };
+  const reservationFilter = viewAll
+    ? undefined
+    : { cabin: { ownerId: userId } };
+
   try {
     const [totalRes, pending, cabins, revenue] = await Promise.all([
-      prisma.reservation.count(),
-      prisma.reservation.count({ where: { status: "PENDING" } }),
-      prisma.cabin.count({ where: { isActive: true } }),
+      prisma.reservation.count({ where: reservationFilter }),
+      prisma.reservation.count({
+        where: { ...reservationFilter, status: "PENDING" },
+      }),
+      prisma.cabin.count({ where: { ...cabinFilter, isActive: true } }),
       prisma.reservation.aggregate({
         _sum: { totalPrice: true },
-        where: { status: { in: ["CONFIRMED", "COMPLETED"] } },
+        where: {
+          ...reservationFilter,
+          status: { in: ["CONFIRMED", "COMPLETED"] },
+        },
       }),
     ]);
     return {
@@ -24,9 +36,11 @@ async function loadMetrics() {
   }
 }
 
-async function loadRecent() {
+async function loadRecent(userId: string, viewAll: boolean) {
+  const where = viewAll ? undefined : { cabin: { ownerId: userId } };
   try {
     return await prisma.reservation.findMany({
+      where,
       take: 6,
       orderBy: { createdAt: "desc" },
       include: { cabin: { select: { title: true } } },
@@ -37,14 +51,27 @@ async function loadRecent() {
 }
 
 export default async function AdminDashboard() {
-  const metrics = await loadMetrics();
-  const recent = await loadRecent();
+  const user = (await getCurrentUser())!;
+  const viewAll = isSuperAdmin(user);
+
+  const metrics = await loadMetrics(user.id, viewAll);
+  const recent = await loadRecent(user.id, viewAll);
 
   return (
     <div className="space-y-12">
       <header className="space-y-2">
-        <p className="text-eyebrow">Panel</p>
-        <h1 className="heading-section">Resumen general</h1>
+        <p className="text-eyebrow flex items-center gap-1.5">
+          {viewAll && <ShieldCheck size={12} strokeWidth={2} />}
+          Panel
+        </p>
+        <h1 className="heading-section">
+          {viewAll ? "Resumen global" : "Tu resumen"}
+        </h1>
+        <p className="max-w-xl text-sm text-[color:var(--color-text-secondary)]">
+          {viewAll
+            ? "Métricas de todas las cabañas del sistema."
+            : "Métricas de las cabañas que vos administrás."}
+        </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -62,37 +89,44 @@ export default async function AdminDashboard() {
             Aún no hay actividad. Cuando lleguen reservas, las vas a ver acá.
           </div>
         ) : (
-          <div className="surface-paper overflow-hidden p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-[color:var(--color-surface-muted)]/60 text-left text-xs uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Cabaña</th>
-                  <th className="px-5 py-3 font-medium">Huésped</th>
-                  <th className="px-5 py-3 font-medium">Check-in</th>
-                  <th className="px-5 py-3 font-medium">Estado</th>
-                  <th className="px-5 py-3 font-medium text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--color-border)]">
-                {recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-5 py-3 font-medium">{r.cabin.title}</td>
-                    <td className="px-5 py-3 text-[color:var(--color-text-secondary)]">
-                      {r.guestName}
-                    </td>
-                    <td className="px-5 py-3 text-[color:var(--color-text-secondary)]">
-                      {r.checkIn.toLocaleDateString("es-AR")}
-                    </td>
-                    <td className="px-5 py-3 text-[color:var(--color-text-secondary)]">
-                      {r.status}
-                    </td>
-                    <td className="px-5 py-3 text-right font-medium">
-                      {formatCurrency(r.totalPrice)}
-                    </td>
+          <div className="surface-paper p-0">
+            <div className="-mx-px overflow-x-auto rounded-[inherit]">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="bg-[color:var(--color-surface-muted)]/60 text-left text-xs uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Cabaña</th>
+                    <th className="px-5 py-3 font-medium">Huésped</th>
+                    <th className="px-5 py-3 font-medium">Check-in</th>
+                    <th className="px-5 py-3 font-medium">Estado</th>
+                    <th className="px-5 py-3 font-medium text-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[color:var(--color-border)]">
+                  {recent.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-5 py-3 font-medium whitespace-nowrap">
+                        {r.cabin.title}
+                      </td>
+                      <td className="px-5 py-3 text-[color:var(--color-text-secondary)] whitespace-nowrap">
+                        {r.guestName}
+                      </td>
+                      <td className="px-5 py-3 text-[color:var(--color-text-secondary)] whitespace-nowrap">
+                        {r.checkIn.toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="px-5 py-3 text-[color:var(--color-text-secondary)] whitespace-nowrap">
+                        {r.status}
+                      </td>
+                      <td className="px-5 py-3 text-right font-medium whitespace-nowrap">
+                        {formatCurrency(r.totalPrice)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="border-t border-[color:var(--color-border)] px-5 py-2 text-[11px] text-[color:var(--color-text-muted)] md:hidden">
+              Desliz horizontal para ver todas las columnas →
+            </p>
           </div>
         )}
       </section>

@@ -7,11 +7,16 @@ import {
 
 export type CabinView = MockCabin;
 
-/**
- * Try to read from the DB. If the DB isn't reachable (no DATABASE_URL,
- * not seeded, build-time in CI…), gracefully fall back to mock data so
- * the site keeps rendering during development and on cold deploys.
- */
+/** Active reservation window used for date-availability filtering. */
+export type ReservationWindow = {
+  checkIn: string;
+  checkOut: string;
+};
+
+export type CabinWithReservations = CabinView & {
+  reservations: ReservationWindow[];
+};
+
 async function safeDb<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn();
@@ -33,9 +38,45 @@ export async function listCabins(): Promise<CabinView[]> {
       },
       orderBy: { createdAt: "asc" },
     });
-
     return rows.map(mapCabin);
   }, mockCabins);
+}
+
+/**
+ * Same as `listCabins` but each cabin includes its active (PENDING/CONFIRMED)
+ * reservations. Used by the public catalog to filter by date range.
+ */
+export async function listCabinsWithReservations(): Promise<
+  CabinWithReservations[]
+> {
+  return safeDb(
+    async () => {
+      const rows = await prisma.cabin.findMany({
+        where: { isActive: true },
+        include: {
+          images: { orderBy: { order: "asc" } },
+          amenities: { include: { amenity: true } },
+          reservations: {
+            where: {
+              status: { in: ["PENDING", "CONFIRMED"] },
+              checkOut: { gte: new Date() },
+            },
+            select: { checkIn: true, checkOut: true },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      return rows.map((row) => ({
+        ...mapCabin(row),
+        reservations: row.reservations.map((r) => ({
+          checkIn: r.checkIn.toISOString(),
+          checkOut: r.checkOut.toISOString(),
+        })),
+      }));
+    },
+    mockCabins.map((c) => ({ ...c, reservations: [] }))
+  );
 }
 
 export async function getCabinBySlug(
@@ -59,7 +100,9 @@ type Row = Awaited<ReturnType<typeof prisma.cabin.findFirstOrThrow>> & {
 };
 
 function mapCabin(row: Row): CabinView {
-  const knownAmenityKeys = Object.keys(amenityLabels) as (keyof typeof amenityLabels)[];
+  const knownAmenityKeys = Object.keys(
+    amenityLabels
+  ) as (keyof typeof amenityLabels)[];
 
   return {
     id: row.id,

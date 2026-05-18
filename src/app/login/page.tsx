@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Ingresar" };
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
+  if (user) redirect(isAdmin(user) ? "/admin" : "/dashboard");
   return (
     <section className="container-page grid min-h-[80vh] items-center pt-32 pb-24 md:grid-cols-2 md:gap-16">
       <div className="hidden md:block">

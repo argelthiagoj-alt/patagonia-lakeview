@@ -2,10 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/Badge";
 import { AdminReservationRow } from "@/components/admin/AdminReservationRow";
 import { formatCurrency } from "@/lib/utils";
+import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
 
-async function load() {
+async function load(userId: string, viewAll: boolean) {
+  const where = viewAll ? undefined : { cabin: { ownerId: userId } };
   try {
     return await prisma.reservation.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: { cabin: { select: { title: true } } },
     });
@@ -15,7 +18,9 @@ async function load() {
 }
 
 export default async function AdminReservationsPage() {
-  const rows = await load();
+  const user = (await getCurrentUser())!;
+  const viewAll = isSuperAdmin(user);
+  const rows = await load(user.id, viewAll);
 
   return (
     <div className="space-y-8">
@@ -29,8 +34,9 @@ export default async function AdminReservationsPage() {
           Sin reservas todavía.
         </div>
       ) : (
-        <div className="surface-paper overflow-x-auto p-0">
-          <table className="w-full text-sm">
+        <div className="surface-paper p-0">
+          <div className="-mx-px overflow-x-auto rounded-[inherit]">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-[color:var(--color-surface-muted)]/60 text-left text-xs uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
               <tr>
                 <th className="px-5 py-3 font-medium">Cabaña</th>
@@ -61,6 +67,10 @@ export default async function AdminReservationsPage() {
               ))}
             </tbody>
           </table>
+          </div>
+          <p className="border-t border-[color:var(--color-border)] px-5 py-2 text-[11px] text-[color:var(--color-text-muted)] md:hidden">
+            Desliz horizontal para ver todas las columnas →
+          </p>
         </div>
       )}
 

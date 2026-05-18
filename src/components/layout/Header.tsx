@@ -7,7 +7,7 @@ import { Menu, X, LayoutDashboard, LogOut } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Logo } from "@/components/layout/Logo";
 import { cn } from "@/lib/utils";
-import type { CurrentUser } from "@/lib/auth";
+import { isAdmin, type CurrentUser } from "@/lib/auth-roles";
 
 const navLinks = [
   { href: "/cabins", label: "Cabañas" },
@@ -53,7 +53,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
     }
   }
 
-  const dashboardHref = user?.role === "ADMIN" ? "/admin" : "/dashboard";
+  const dashboardHref = isAdmin(user) ? "/admin" : "/dashboard";
 
   return (
     <header
@@ -98,7 +98,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
               <>
                 <LinkButton href={dashboardHref} variant="ghost" size="sm">
                   <LayoutDashboard size={14} strokeWidth={1.75} />
-                  {user.role === "ADMIN" ? "Panel admin" : "Mi cuenta"}
+                  {isAdmin(user) ? "Panel admin" : "Mi cuenta"}
                 </LinkButton>
                 <Button
                   type="button"
@@ -159,7 +159,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
             {user ? (
               <>
                 <LinkButton href={dashboardHref} variant="secondary" size="sm">
-                  {user.role === "ADMIN" ? "Panel" : "Mi cuenta"}
+                  {isAdmin(user) ? "Panel" : "Mi cuenta"}
                 </LinkButton>
                 <Button
                   type="button"

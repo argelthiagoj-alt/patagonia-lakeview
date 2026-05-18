@@ -20,15 +20,21 @@ export function SafeImage({
   alt,
   fallbackSrc = fallbackImage.url,
   className,
+  unoptimized,
   ...props
 }: SafeImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [errored, setErrored] = useState(false);
 
+  // Skip the Next.js image optimizer for inline data URLs:
+  // they'd otherwise be sent through /_next/image as a giant query param.
+  const isDataUrl = currentSrc.startsWith("data:");
+
   return (
     <Image
       src={currentSrc}
       alt={alt}
+      unoptimized={unoptimized ?? isDataUrl}
       className={cn(
         "object-cover transition-opacity duration-700",
         className

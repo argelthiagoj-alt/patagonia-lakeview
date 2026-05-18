@@ -21,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = "Input";
 
 type FieldProps = {
-  label: string;
+  label: React.ReactNode;
   htmlFor: string;
   hint?: string;
   error?: string;

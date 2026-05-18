@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin as isAdminUser } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
@@ -26,7 +26,7 @@ export async function PATCH(
     }
 
     const isOwner = reservation.userId === user.id;
-    const isAdmin = user.role === "ADMIN";
+    const isAdmin = isAdminUser(user);
 
     if (body.action === "cancel") {
       if (!isOwner && !isAdmin) {

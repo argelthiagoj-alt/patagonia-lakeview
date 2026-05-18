@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 
 type Mode = "login" | "register";
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Surface OAuth redirect errors carried in ?error=
+  useEffect(() => {
+    const e = params?.get("error");
+    if (e) setError(e);
+  }, [params]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +60,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
           return;
         }
 
-        router.push("/dashboard");
+        // After register, take the user to email verification (we just sent a code)
+        if (mode === "register") {
+          router.push("/verify-email");
+        } else {
+          router.push("/dashboard");
+        }
         router.refresh();
       } catch {
         setError("Sin conexión. Intentá de nuevo.");
@@ -68,9 +81,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </h1>
         <p className="text-sm text-[color:var(--color-text-secondary)]">
           {mode === "login"
-            ? "Ingresá con tu email y contraseña."
+            ? "Ingresá con tu email y contraseña, o continuá con Google."
             : "Reservás más rápido y guardás tus estadías favoritas."}
         </p>
+      </div>
+
+      <GoogleButton />
+
+      <div className="flex items-center gap-3 text-xs text-[color:var(--color-text-muted)]">
+        <span className="h-px flex-1 bg-[color:var(--color-border)]" />
+        <span>o con email</span>
+        <span className="h-px flex-1 bg-[color:var(--color-border)]" />
       </div>
 
       {mode === "register" && (
@@ -98,7 +119,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
         />
       </Field>
 
-      <Field label="Contraseña" htmlFor="auth-pass">
+      <Field
+        label={
+          mode === "login" ? (
+            <span className="flex items-center justify-between gap-2">
+              <span>Contraseña</span>
+              <Link
+                href="/forgot-password"
+                className="text-[10px] font-medium uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
+              >
+                ¿Olvidaste?
+              </Link>
+            </span>
+          ) : (
+            "Contraseña"
+          )
+        }
+        htmlFor="auth-pass"
+      >
         <Input
           id="auth-pass"
           type="password"

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function AdminLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!isAdmin(user)) redirect("/dashboard");
 
   return (
     <DashboardShell user={user} variant="admin">

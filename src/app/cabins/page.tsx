@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CabinCatalog } from "@/components/cabins/CabinFilters";
-import { listCabins } from "@/lib/db/cabins";
+import { listCabinsWithReservations } from "@/lib/db/cabins";
 
 export const metadata: Metadata = {
   title: "Catálogo de cabañas",
@@ -10,8 +10,19 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function CabinsPage() {
-  const cabins = await listCabins();
+export default async function CabinsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const search = await searchParams;
+  const cabins = await listCabinsWithReservations();
+
+  const checkIn = typeof search.checkIn === "string" ? search.checkIn : undefined;
+  const checkOut =
+    typeof search.checkOut === "string" ? search.checkOut : undefined;
+  const guests =
+    typeof search.guests === "string" ? Number(search.guests) : undefined;
 
   return (
     <section className="container-page pt-32 pb-24 md:pt-40 md:pb-32">
@@ -21,12 +32,15 @@ export default async function CabinsPage() {
           Encontrá tu cabaña en la Patagonia.
         </h1>
         <p className="max-w-2xl text-base/relaxed text-[color:var(--color-text-secondary)] md:text-lg/relaxed">
-          Cuatro propuestas, todas con vista, materiales nobles y la
-          tranquilidad de los lagos patagónicos.
+          Filtros por fecha, precio, capacidad y amenities. Todas las cabañas
+          publicadas desde el panel admin aparecen acá.
         </p>
       </header>
 
-      <CabinCatalog cabins={cabins} />
+      <CabinCatalog
+        cabins={cabins}
+        initial={{ checkIn, checkOut, guests }}
+      />
     </section>
   );
 }

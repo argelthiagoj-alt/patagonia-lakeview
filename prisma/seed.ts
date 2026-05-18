@@ -86,16 +86,38 @@ async function main() {
   await prisma.user.deleteMany();
 
   // ── Users ────────────────────────────────────────────────────────
+  const superPassword = await bcrypt.hash("owner1234", 10);
   const adminPassword = await bcrypt.hash("admin1234", 10);
   const guestPassword = await bcrypt.hash("guest1234", 10);
   const reviewerPassword = await bcrypt.hash("reviewer1234", 10);
 
-  const admin = await prisma.user.create({
+  const superAdmin = await prisma.user.create({
+    data: {
+      name: "Elena Owner",
+      email: "owner@patagonialakeview.com",
+      passwordHash: superPassword,
+      role: UserRole.SUPER_ADMIN,
+      emailVerified: new Date(),
+    },
+  });
+
+  const adminLucia = await prisma.user.create({
     data: {
       name: "Lucía Admin",
       email: "admin@patagonialakeview.com",
       passwordHash: adminPassword,
       role: UserRole.ADMIN,
+      emailVerified: new Date(),
+    },
+  });
+
+  const adminMartin = await prisma.user.create({
+    data: {
+      name: "Martín Admin",
+      email: "admin2@patagonialakeview.com",
+      passwordHash: adminPassword,
+      role: UserRole.ADMIN,
+      emailVerified: new Date(),
     },
   });
 
@@ -105,8 +127,17 @@ async function main() {
       email: "guest@patagonialakeview.com",
       passwordHash: guestPassword,
       role: UserRole.USER,
+      emailVerified: new Date(),
     },
   });
+
+  // Owner assignment per cabin slug — distributes ownership across the two admins.
+  const ownerBySlug: Record<string, string> = {
+    "arrayan-lake-cabin": adminLucia.id,
+    "cipres-forest-lodge": adminLucia.id,
+    "condor-mountain-refuge": adminMartin.id,
+    "lenga-superior-cabin": adminMartin.id,
+  };
 
   // Extra reviewer users so each review has a distinct authored account
   const reviewerNames = Array.from(
@@ -133,7 +164,7 @@ async function main() {
   );
 
   console.log(
-    `  ✓ Users created: 1 admin, 1 guest, ${reviewerUsers.length} reviewers`
+    `  ✓ Users: 1 super-admin, 2 admins, 1 guest, ${reviewerUsers.length} reviewers`
   );
 
   // ── Amenities ────────────────────────────────────────────────────
@@ -147,6 +178,7 @@ async function main() {
 
   // ── Cabins ───────────────────────────────────────────────────────
   for (const c of cabinSeed) {
+    const ownerId = ownerBySlug[c.slug] ?? superAdmin.id;
     const cabin = await prisma.cabin.create({
       data: {
         slug: c.slug,
@@ -163,6 +195,7 @@ async function main() {
         rating: c.rating,
         reviewCount: c.reviewCount,
         highlights: c.highlights,
+        ownerId,
         images: {
           create: c.images.map((img, i) => ({
             url: img.url,
@@ -254,12 +287,11 @@ async function main() {
   console.log(`
 ✨ Seed complete
 
-  Admin → admin@patagonialakeview.com / admin1234
-  Guest → guest@patagonialakeview.com / guest1234
+  Super-admin → owner@patagonialakeview.com / owner1234   (sees everything)
+  Admin       → admin@patagonialakeview.com / admin1234   (owns Arrayán + Ciprés)
+  Admin       → admin2@patagonialakeview.com / admin1234  (owns Cóndor + Lenga)
+  Guest       → guest@patagonialakeview.com / guest1234
 `);
-
-  // Unused — kept around for parity with prior version
-  void admin;
 }
 
 main()

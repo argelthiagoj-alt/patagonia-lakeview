@@ -1,16 +1,24 @@
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import {
+  isAdmin,
+  isSuperAdmin,
+  type CurrentUser,
+  type Role,
+} from "@/lib/auth-roles";
+
+// Re-export pure helpers so existing imports `from "@/lib/auth"` keep working.
+export {
+  ADMIN_ROLES,
+  canManageCabin,
+  isAdmin,
+  isSuperAdmin,
+} from "@/lib/auth-roles";
+export type { CurrentUser, Role };
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "pl_session";
 const SESSION_DURATION_DAYS = 30;
-
-export type CurrentUser = {
-  id: string;
-  email: string;
-  name: string | null;
-  role: "USER" | "ADMIN";
-};
 
 function randomToken() {
   const bytes = new Uint8Array(32);
@@ -74,6 +82,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       email: session.user.email,
       name: session.user.name,
       role: session.user.role,
+      emailVerified: session.user.emailVerified,
     };
   } catch {
     return null;
@@ -88,6 +97,12 @@ export async function requireUser(): Promise<CurrentUser> {
 
 export async function requireAdmin(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") throw new Error("FORBIDDEN");
+  if (!user || !isAdmin(user)) throw new Error("FORBIDDEN");
   return user;
+}
+
+export async function requireSuperAdmin(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!isSuperAdmin(user)) throw new Error("FORBIDDEN");
+  return user!;
 }

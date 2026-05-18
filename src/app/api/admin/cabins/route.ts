@@ -4,8 +4,9 @@ import { cabinSchema } from "@/lib/validations";
 import { requireAdmin } from "@/lib/auth";
 
 export async function POST(req: Request) {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireAdmin();
   } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -25,11 +26,53 @@ export async function POST(req: Request) {
     );
   }
 
+  const data = parsed.data;
+
   try {
-    const cabin = await prisma.cabin.create({ data: parsed.data });
+    const amenities = data.amenityKeys.length
+      ? await prisma.amenity.findMany({
+          where: { key: { in: data.amenityKeys } },
+          select: { id: true },
+        })
+      : [];
+
+    const cabin = await prisma.cabin.create({
+      data: {
+        slug: data.slug,
+        title: data.title,
+        description: data.description,
+        shortDescription: data.shortDescription,
+        location: data.location,
+        lakeView: data.lakeView,
+        maxGuests: data.maxGuests,
+        bedrooms: data.bedrooms,
+        bathrooms: data.bathrooms,
+        pricePerNight: data.pricePerNight,
+        cleaningFee: data.cleaningFee,
+        isActive: data.isActive,
+        highlights: data.highlights,
+        // Ownership: NEVER trust the client. Always set ownerId from the session.
+        ownerId: user.id,
+        images: {
+          create: data.images.map((img, order) => ({
+            url: img.url,
+            alt: img.alt ?? null,
+            order,
+          })),
+        },
+        amenities: {
+          create: amenities.map((a) => ({ amenityId: a.id })),
+        },
+      },
+    });
+
     return NextResponse.json({ cabin }, { status: 201 });
   } catch (err) {
+    const message =
+      (err as { code?: string }).code === "P2002"
+        ? "Ya existe una cabaña con ese slug."
+        : "No pudimos crear la cabaña.";
     console.error("[POST /api/admin/cabins]", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

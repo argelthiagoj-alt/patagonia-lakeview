@@ -1,12 +1,21 @@
 import Link from "next/link";
-import { LayoutDashboard, CalendarCheck, User, Home, LogOut } from "lucide-react";
-import type { CurrentUser } from "@/lib/auth";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  User,
+  Home,
+  LogOut,
+  Users,
+  ShieldCheck,
+} from "lucide-react";
+import { isAdmin, isSuperAdmin, type CurrentUser } from "@/lib/auth-roles";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof Home;
+  superAdminOnly?: boolean;
 };
 
 const userNav: NavItem[] = [
@@ -19,6 +28,7 @@ const adminNav: NavItem[] = [
   { href: "/admin", label: "Resumen", icon: LayoutDashboard },
   { href: "/admin/cabins", label: "Cabañas", icon: Home },
   { href: "/admin/reservations", label: "Reservas", icon: CalendarCheck },
+  { href: "/admin/users", label: "Usuarios", icon: Users, superAdminOnly: true },
 ];
 
 export function DashboardShell({
@@ -30,15 +40,28 @@ export function DashboardShell({
   variant: "user" | "admin";
   children: React.ReactNode;
 }) {
-  const nav = variant === "admin" ? adminNav : userNav;
+  const nav =
+    variant === "admin"
+      ? adminNav.filter((i) => !i.superAdminOnly || isSuperAdmin(user))
+      : userNav;
+
+  const headerLabel =
+    variant === "admin"
+      ? isSuperAdmin(user)
+        ? "Super-admin"
+        : "Admin"
+      : "Mi cuenta";
 
   return (
     <section className="container-page grid gap-10 pt-32 pb-24 lg:grid-cols-[260px_1fr]">
       <aside className="lg:sticky lg:top-28 lg:self-start">
         <div className="surface-paper space-y-6 p-5">
           <div className="space-y-1">
-            <p className="text-eyebrow">
-              {variant === "admin" ? "Admin" : "Mi cuenta"}
+            <p className="text-eyebrow flex items-center gap-1.5">
+              {variant === "admin" && isSuperAdmin(user) && (
+                <ShieldCheck size={12} strokeWidth={2} />
+              )}
+              {headerLabel}
             </p>
             <p className="text-sm font-medium">{user.name ?? user.email}</p>
             <p className="text-xs text-[color:var(--color-text-secondary)]">
@@ -66,7 +89,7 @@ export function DashboardShell({
                 Vista usuario
               </Link>
             )}
-            {variant === "user" && user.role === "ADMIN" && (
+            {variant === "user" && isAdmin(user) && (
               <Link
                 href="/admin"
                 className="flex items-center gap-3 rounded-2xl px-3 py-2 text-sm text-[color:var(--color-text-secondary)] transition hover:bg-[color:var(--color-surface-muted)]"
