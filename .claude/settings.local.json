@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(DATABASE_URL=\"postgresql://x:y@localhost:5432/none\" npm run build)",
+      "Bash(tasklist)",
+      "Bash(rm -f node_modules/.prisma/client/query_engine-windows.dll.node.tmp*)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(DATABASE_URL=\"\" npm run build)",
+      "Bash(tasklist /v /fi \"imagename eq node.exe\")",
+      "Bash(tasklist /fi \"imagename eq node.exe\")",
+      "Bash(taskkill /pid 3400 /f)",
+      "PowerShell(Stop-Process -Id 3400 -Force)",
+      "Bash(DATABASE_URL=\"\" npm run dev)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/cabins)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.WorkingSet -gt 200MB } | Stop-Process -Force; Start-Sleep -Seconds 1; tasklist | findstr node)",
+      "Bash(npx tsc *)",
+      "Bash(DATABASE_URL=\"postgresql://x:y@unreachable:5432/none\" npx prisma db seed)",
+      "Bash(DATABASE_URL=\"postgresql://x:y@unreachable:5432/none\" DIRECT_URL=\"postgresql://x:y@unreachable:5432/none\" npx prisma validate)",
+      "Bash(npx prisma *)",
+      "PowerShell(try { Resolve-DnsName -Name \"db.kvrgvvnkmgqpgzmxhvie.supabase.co\" -ErrorAction Stop | Format-List Name, Type, IPAddress } catch { \"DNS error: $\\($_.Exception.Message\\)\" })"
+    ]
+  }
+}

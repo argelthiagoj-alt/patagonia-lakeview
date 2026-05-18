@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String?
+  email        String        @unique
+  passwordHash String?
+  role         UserRole      @default(USER)
+  reservations Reservation[]
+  reviews      Review[]
+  sessions     Session[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Cabin {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  description      String
+  shortDescription String?
+  location         String
+  lakeView         Boolean        @default(false)
+  maxGuests        Int
+  bedrooms         Int
+  bathrooms        Int
+  pricePerNight    Int
+  cleaningFee      Int            @default(0)
+  isActive         Boolean        @default(true)
+  rating           Float          @default(5)
+  reviewCount      Int            @default(0)
+  highlights       String[]       @default([])
+  images           CabinImage[]
+  amenities        CabinAmenity[]
+  reservations     Reservation[]
+  reviews          Review[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model CabinImage {
+  id      String  @id @default(cuid())
+  url     String
+  alt     String?
+  order   Int     @default(0)
+  cabinId String
+  cabin   Cabin   @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+
+  @@index([cabinId])
+}
+
+model Amenity {
+  id     String         @id @default(cuid())
+  key    String         @unique
+  name   String
+  icon   String?
+  cabins CabinAmenity[]
+}
+
+model CabinAmenity {
+  cabinId   String
+  amenityId String
+  cabin     Cabin   @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([cabinId, amenityId])
+}
+
+model Reservation {
+  id          String            @id @default(cuid())
+  userId      String?
+  cabinId     String
+  guestName   String
+  guestEmail  String
+  checkIn     DateTime
+  checkOut    DateTime
+  guests      Int
+  totalPrice  Int
+  status      ReservationStatus @default(PENDING)
+  notes       String?
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cabin       Cabin             @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([cabinId, checkIn, checkOut])
+  @@index([userId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  cabinId   String
+  rating    Int
+  comment   String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cabin     Cabin    @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([cabinId])
+}
