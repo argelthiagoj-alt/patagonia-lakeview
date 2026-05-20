@@ -47,6 +47,56 @@ export default async function CabinDetailPage({
   const allCabins = await listCabins();
   const related = allCabins.filter((c) => c.id !== cabin.id).slice(0, 3);
 
+  // Pre-fill the booking form with the logged user's profile (if any)
+  const me = await (await import("@/lib/auth")).getCurrentUser();
+  let userDefaults:
+    | {
+        loggedIn: true;
+        email: string;
+        name: string;
+        documentId?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        hasSavedProfile: boolean;
+      }
+    | undefined = undefined;
+  if (me) {
+    const { prisma } = await import("@/lib/prisma");
+    const u = await prisma.user
+      .findUnique({
+        where: { id: me.id },
+        select: {
+          email: true,
+          name: true,
+          documentId: true,
+          phone: true,
+          address: true,
+          city: true,
+          state: true,
+          country: true,
+        },
+      })
+      .catch(() => null);
+    if (u) {
+      const hasSavedProfile = Boolean(u.documentId && u.phone && u.address);
+      userDefaults = {
+        loggedIn: true,
+        email: u.email,
+        name: u.name ?? "",
+        documentId: u.documentId ?? undefined,
+        phone: u.phone ?? undefined,
+        address: u.address ?? undefined,
+        city: u.city ?? undefined,
+        state: u.state ?? undefined,
+        country: u.country ?? undefined,
+        hasSavedProfile,
+      };
+    }
+  }
+
   const checkIn = typeof search.checkIn === "string" ? search.checkIn : undefined;
   const checkOut =
     typeof search.checkOut === "string" ? search.checkOut : undefined;
@@ -124,6 +174,41 @@ export default async function CabinDetailPage({
             <CabinAmenities amenities={cabin.amenities} />
           </section>
 
+          {cabin.beds.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-2xl font-medium tracking-tight">Camas</h2>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {cabin.beds.map((b) => (
+                  <li
+                    key={b.type}
+                    className="flex items-center justify-between rounded-2xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm"
+                  >
+                    <span className="text-[color:var(--color-text-primary)]">
+                      {(
+                        {
+                          TWIN: "Individual",
+                          DOUBLE: "Matrimonial",
+                          QUEEN: "Queen",
+                          KING: "King",
+                          SOFA_BED: "Sofá cama",
+                          BUNK: "Litera",
+                        } as const
+                      )[b.type]}
+                    </span>
+                    <strong className="text-[color:var(--color-text-primary)]">
+                      ×{b.quantity}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+              {cabin.totalUnits > 1 && (
+                <p className="text-xs text-[color:var(--color-text-muted)]">
+                  Esta publicación representa {cabin.totalUnits} unidades equivalentes.
+                </p>
+              )}
+            </section>
+          )}
+
           <section className="space-y-6">
             <h2 className="text-2xl font-medium tracking-tight">Política de cancelación</h2>
             <p className="text-base/relaxed text-[color:var(--color-text-secondary)]">
@@ -140,6 +225,7 @@ export default async function CabinDetailPage({
             initialCheckIn={checkIn}
             initialCheckOut={checkOut}
             initialGuests={guests}
+            userDefaults={userDefaults}
           />
         </aside>
       </div>

@@ -11,6 +11,9 @@ export type CurrentUser = {
   name: string | null;
   role: Role;
   emailVerified: Date | null;
+  isBanned: boolean;
+  adminPlan: "FREE" | "PRO";
+  proUntil: Date | null;
 };
 
 export const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN"] as const;
@@ -21,6 +24,12 @@ export function isAdmin(user: CurrentUser | null | undefined): boolean {
 
 export function isSuperAdmin(user: CurrentUser | null | undefined): boolean {
   return user?.role === "SUPER_ADMIN";
+}
+
+export function isProHost(user: CurrentUser | null | undefined): boolean {
+  if (!user || user.role !== "ADMIN") return false;
+  if (user.adminPlan !== "PRO") return false;
+  return user.proUntil ? user.proUntil > new Date() : true;
 }
 
 /**

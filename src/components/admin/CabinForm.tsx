@@ -48,11 +48,13 @@ const emptyValues: CabinInput = {
   maxGuests: 2,
   pricePerNight: 200,
   cleaningFee: 30,
+  totalUnits: 1,
   lakeView: false,
   isActive: true,
   highlights: [],
   amenityKeys: [],
   images: [],
+  beds: [],
 };
 
 export function CabinForm({ id, amenities, initial }: Props) {
@@ -78,6 +80,7 @@ export function CabinForm({ id, amenities, initial }: Props) {
   } = form;
 
   const images = useFieldArray({ control, name: "images" });
+  const beds = useFieldArray({ control, name: "beds" });
   const highlights = useFieldArray({
     control,
     name: "highlights" as never,
@@ -246,7 +249,18 @@ export function CabinForm({ id, amenities, initial }: Props) {
             register={register("cleaningFee")}
             error={errors.cleaningFee?.message}
           />
+          <NumField
+            label="Unidades disponibles"
+            id="cf-units"
+            register={register("totalUnits")}
+            error={errors.totalUnits?.message}
+          />
         </div>
+        <p className="text-xs text-[color:var(--color-text-muted)]">
+          Si tu publicación representa varias cabañas iguales, subí el número de
+          unidades. La disponibilidad se calcula contando reservas activas
+          contra este total.
+        </p>
       </Section>
 
       {/* ─────────────── Images ─────────────── */}
@@ -395,6 +409,54 @@ export function CabinForm({ id, amenities, initial }: Props) {
             );
           })}
         </div>
+      </Section>
+
+      {/* ─────────────── Beds ─────────────── */}
+      <Section
+        title="Camas"
+        description="Detallá la configuración de camas por unidad. Los filtros del catálogo público usan esta info."
+      >
+        {beds.fields.length > 0 && (
+          <ul className="space-y-2">
+            {beds.fields.map((field, idx) => (
+              <li
+                key={field.id}
+                className="grid grid-cols-[1fr_120px_auto] items-center gap-2"
+              >
+                <select
+                  {...register(`beds.${idx}.type`)}
+                  className="h-11 rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+                >
+                  <option value="TWIN">Individual</option>
+                  <option value="DOUBLE">Matrimonial</option>
+                  <option value="QUEEN">Queen</option>
+                  <option value="KING">King</option>
+                  <option value="SOFA_BED">Sofá cama</option>
+                  <option value="BUNK">Litera</option>
+                </select>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  placeholder="Cantidad"
+                  {...register(`beds.${idx}.quantity`, { valueAsNumber: true })}
+                />
+                <IconBtn aria-label="Quitar" onClick={() => beds.remove(idx)} danger>
+                  <Trash2 size={16} />
+                </IconBtn>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => beds.append({ type: "DOUBLE", quantity: 1 })}
+        >
+          <Plus size={14} strokeWidth={1.75} />
+          Agregar tipo de cama
+        </Button>
       </Section>
 
       {/* ─────────────── Highlights ─────────────── */}

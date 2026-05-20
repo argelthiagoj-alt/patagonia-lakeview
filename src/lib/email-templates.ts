@@ -264,6 +264,169 @@ export function jobApplicationEmail(d: JobApplicationPayload): EmailContent {
   return { subject, text, html };
 }
 
+/* ─────────── Reservation lifecycle ─────────── */
+
+export type ReservationEmailPayload = {
+  guestName: string;
+  cabinTitle: string;
+  checkIn: Date;
+  checkOut: Date;
+  total: number;
+};
+
+function fmtRange(from: Date, to: Date) {
+  const opts: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" };
+  return `${from.toLocaleDateString("es-AR", opts)} → ${to.toLocaleDateString(
+    "es-AR",
+    { ...opts, year: "numeric" }
+  )}`;
+}
+
+function fmtMoney(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+export function reservationReceivedEmail(
+  d: ReservationEmailPayload
+): EmailContent {
+  const subject = `Recibimos tu solicitud para ${d.cabinTitle}`;
+  const preheader = `Estamos revisando tu reserva. Pago simulado autorizado.`;
+
+  const text = [
+    `Hola ${d.guestName},`,
+    "",
+    `Recibimos tu solicitud de reserva para ${d.cabinTitle}.`,
+    `Fechas: ${fmtRange(d.checkIn, d.checkOut)}`,
+    `Pago simulado: autorizado por ${fmtMoney(d.total)}`,
+    "",
+    "El anfitrión va a aceptar o rechazar tu reserva en las próximas horas.",
+    "Si la rechaza, el pago se devuelve de forma simulada.",
+  ].join("\n");
+
+  const html = layout({
+    preheader,
+    title: subject,
+    body: `
+      <p style="margin:0 0 8px;">${pill("Solicitud recibida")}</p>
+      <h1 style="margin:0 0 16px;font-size:24px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;color:${INK};">
+        Estamos revisando tu reserva
+      </h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${INK};">
+        Hola ${escapeHtml(d.guestName)}, recibimos tu solicitud para
+        <strong>${escapeHtml(d.cabinTitle)}</strong>.
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 18px;border-top:1px solid ${BORDER};border-bottom:1px solid ${BORDER};">
+        <tr><td style="padding:8px 0;font-size:12px;color:${INK_2};width:38%;">Fechas</td><td style="padding:8px 0;font-size:14px;color:${INK};">${escapeHtml(
+          fmtRange(d.checkIn, d.checkOut)
+        )}</td></tr>
+        <tr><td style="padding:8px 0;font-size:12px;color:${INK_2};">Pago simulado</td><td style="padding:8px 0;font-size:14px;color:${INK};">Autorizado por ${escapeHtml(
+          fmtMoney(d.total)
+        )}</td></tr>
+      </table>
+      <p style="margin:0;font-size:14px;line-height:1.65;color:${INK_2};">
+        El anfitrión va a aceptar o rechazar tu reserva en las próximas horas.
+        Si la rechaza, el pago se devuelve de forma simulada.
+      </p>
+    `,
+  });
+
+  return { subject, text, html };
+}
+
+export function reservationConfirmedEmail(
+  d: ReservationEmailPayload
+): EmailContent {
+  const subject = `Tu reserva en ${d.cabinTitle} fue confirmada`;
+  const preheader = `Pago simulado cobrado. Te esperamos.`;
+
+  const text = [
+    `¡${d.guestName}, te esperamos!`,
+    "",
+    `${d.cabinTitle} está confirmada.`,
+    `Fechas: ${fmtRange(d.checkIn, d.checkOut)}`,
+    `Pago simulado cobrado: ${fmtMoney(d.total)}`,
+  ].join("\n");
+
+  const html = layout({
+    preheader,
+    title: subject,
+    body: `
+      <p style="margin:0 0 8px;">${pill("Confirmada")}</p>
+      <h1 style="margin:0 0 16px;font-size:24px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;color:${INK};">
+        ¡Listo! Tu reserva está confirmada
+      </h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${INK};">
+        ${escapeHtml(d.guestName)}, el anfitrión confirmó tu estadía en
+        <strong>${escapeHtml(d.cabinTitle)}</strong>.
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 18px;border-top:1px solid ${BORDER};border-bottom:1px solid ${BORDER};">
+        <tr><td style="padding:8px 0;font-size:12px;color:${INK_2};width:38%;">Fechas</td><td style="padding:8px 0;font-size:14px;color:${INK};">${escapeHtml(
+          fmtRange(d.checkIn, d.checkOut)
+        )}</td></tr>
+        <tr><td style="padding:8px 0;font-size:12px;color:${INK_2};">Pago simulado</td><td style="padding:8px 0;font-size:14px;color:${INK};">Cobrado · ${escapeHtml(
+          fmtMoney(d.total)
+        )}</td></tr>
+      </table>
+      <p style="margin:0;font-size:14px;line-height:1.65;color:${INK_2};">
+        Vas a recibir indicaciones de llegada cerca de la fecha de check-in.
+      </p>
+    `,
+  });
+
+  return { subject, text, html };
+}
+
+export type ReservationRejectedPayload = {
+  guestName: string;
+  cabinTitle: string;
+  total: number;
+};
+
+export function reservationRejectedEmail(
+  d: ReservationRejectedPayload
+): EmailContent {
+  const subject = `Tu reserva en ${d.cabinTitle} no pudo confirmarse`;
+  const preheader = `El pago simulado fue devuelto.`;
+
+  const text = [
+    `Hola ${d.guestName},`,
+    "",
+    `El anfitrión no pudo confirmar tu reserva en ${d.cabinTitle}.`,
+    `El pago simulado de ${fmtMoney(d.total)} fue devuelto de forma simulada.`,
+    "",
+    "Podés intentar con otras fechas o con otra cabaña.",
+  ].join("\n");
+
+  const html = layout({
+    preheader,
+    title: subject,
+    body: `
+      <p style="margin:0 0 8px;">${pill("No confirmada")}</p>
+      <h1 style="margin:0 0 16px;font-size:24px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;color:${INK};">
+        Tu reserva no pudo confirmarse
+      </h1>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${INK};">
+        ${escapeHtml(d.guestName)}, el anfitrión no pudo aceptar tu reserva
+        en <strong>${escapeHtml(d.cabinTitle)}</strong>.
+      </p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${INK};">
+        El pago simulado de <strong>${escapeHtml(
+          fmtMoney(d.total)
+        )}</strong> fue devuelto de forma simulada (no se procesó dinero real).
+      </p>
+      <p style="margin:0;font-size:14px;line-height:1.65;color:${INK_2};">
+        Podés probar con otras fechas o con otra cabaña disponible.
+      </p>
+    `,
+  });
+
+  return { subject, text, html };
+}
+
 export function emailVerificationEmail(code: string): EmailContent {
   const subject = "Verificá tu email";
   const preheader = `Tu código: ${code}. Vence en 30 minutos.`;

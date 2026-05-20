@@ -11,6 +11,14 @@ async function loadAll(userId: string): Promise<ReservationCardData[]> {
       where: { userId },
       include: {
         cabin: { select: { slug: true, title: true, location: true } },
+        payment: {
+          select: {
+            provider: true,
+            status: true,
+            cardBrand: true,
+            last4: true,
+          },
+        },
       },
       orderBy: { checkIn: "desc" },
     });
@@ -22,6 +30,14 @@ async function loadAll(userId: string): Promise<ReservationCardData[]> {
       guests: r.guests,
       totalPrice: r.totalPrice,
       cabin: r.cabin,
+      payment: r.payment
+        ? {
+            provider: r.payment.provider,
+            status: r.payment.status,
+            cardBrand: r.payment.cardBrand,
+            last4: r.payment.last4,
+          }
+        : null,
     }));
   } catch {
     return [];
@@ -37,6 +53,10 @@ export default async function MyReservationsPage() {
       <header className="space-y-2">
         <p className="text-eyebrow">Tu cuenta</p>
         <h1 className="heading-section">Tus reservas</h1>
+        <p className="max-w-xl text-sm text-[color:var(--color-text-secondary)]">
+          Acá ves el estado de cada reserva y el estado del pago simulado. Las
+          reservas rechazadas muestran la devolución simulada.
+        </p>
       </header>
 
       {reservations.length === 0 ? (

@@ -16,6 +16,9 @@ async function loadUpcoming(userId: string): Promise<ReservationCardData[]> {
       },
       include: {
         cabin: { select: { slug: true, title: true, location: true } },
+        payment: {
+          select: { provider: true, status: true, cardBrand: true, last4: true },
+        },
       },
       orderBy: { checkIn: "asc" },
       take: 3,
@@ -28,6 +31,14 @@ async function loadUpcoming(userId: string): Promise<ReservationCardData[]> {
       guests: r.guests,
       totalPrice: r.totalPrice,
       cabin: r.cabin,
+      payment: r.payment
+        ? {
+            provider: r.payment.provider,
+            status: r.payment.status,
+            cardBrand: r.payment.cardBrand,
+            last4: r.payment.last4,
+          }
+        : null,
     }));
   } catch {
     return [];

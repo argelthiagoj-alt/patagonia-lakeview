@@ -3,14 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { format } from "date-fns";
+import { CreditCard, Wallet, ShieldOff } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency } from "@/lib/utils";
+import {
+  paymentProviderLabel,
+  paymentStatusLabel,
+  paymentStatusTone,
+  type PaymentProvider,
+  type PaymentStatus,
+} from "@/lib/payments";
 
-type Status = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+type Status = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 
 const statusTone: Record<Status, "warning" | "success" | "error" | "stone"> = {
   PENDING: "warning",
   CONFIRMED: "success",
+  REJECTED: "error",
   CANCELLED: "error",
   COMPLETED: "stone",
 };
@@ -18,51 +27,66 @@ const statusTone: Record<Status, "warning" | "success" | "error" | "stone"> = {
 const statusLabel: Record<Status, string> = {
   PENDING: "Pendiente",
   CONFIRMED: "Confirmada",
+  REJECTED: "Rechazada",
   CANCELLED: "Cancelada",
   COMPLETED: "Completada",
+};
+
+export type AdminReservationRowData = {
+  id: string;
+  cabinTitle: string;
+  guestName: string;
+  guestEmail: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  status: Status;
+  totalPrice: number;
+  payment: {
+    provider: PaymentProvider;
+    status: PaymentStatus;
+    cardBrand: string | null;
+    last4: string | null;
+  } | null;
 };
 
 export function AdminReservationRow({
   reservation,
 }: {
-  reservation: {
-    id: string;
-    cabinTitle: string;
-    guestName: string;
-    guestEmail: string;
-    checkIn: string;
-    checkOut: string;
-    guests: number;
-    status: Status;
-    totalPrice: number;
-  };
+  reservation: AdminReservationRowData;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  function action(action: "confirm" | "cancel") {
+  function action(act: "confirm" | "reject" | "cancel") {
+    if (act === "reject" && !confirm("¿Rechazar la reserva? El pago simulado va a quedar como devuelto.")) return;
     startTransition(async () => {
       await fetch(`/api/reservations/${reservation.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action: act }),
       });
       router.refresh();
     });
   }
 
+  const isFinal =
+    reservation.status === "CANCELLED" ||
+    reservation.status === "REJECTED" ||
+    reservation.status === "COMPLETED";
+
   return (
     <tr>
       <td className="px-5 py-3 font-medium">{reservation.cabinTitle}</td>
       <td className="px-5 py-3">
-        <p className="text-[color:var(--color-text-primary)]">
+        <p className="whitespace-nowrap text-[color:var(--color-text-primary)]">
           {reservation.guestName}
         </p>
-        <p className="text-xs text-[color:var(--color-text-secondary)]">
+        <p className="whitespace-nowrap text-xs text-[color:var(--color-text-secondary)]">
           {reservation.guestEmail}
         </p>
       </td>
-      <td className="px-5 py-3 text-[color:var(--color-text-secondary)]">
+      <td className="whitespace-nowrap px-5 py-3 text-[color:var(--color-text-secondary)]">
         {format(new Date(reservation.checkIn), "dd MMM")} →{" "}
         {format(new Date(reservation.checkOut), "dd MMM yyyy")}
       </td>
@@ -72,32 +96,71 @@ export function AdminReservationRow({
           {statusLabel[reservation.status]}
         </Badge>
       </td>
-      <td className="px-5 py-3 text-right font-medium">
+      <td className="px-5 py-3">
+        {reservation.payment ? (
+          <div className="flex flex-col gap-1">
+            <span className="inline-flex items-center gap-1.5 text-xs text-[color:var(--color-text-primary)]">
+              {reservation.payment.provider === "CARD" ? (
+                <CreditCard size={12} strokeWidth={1.75} />
+              ) : (
+                <Wallet size={12} strokeWidth={1.75} />
+              )}
+              {paymentProviderLabel[reservation.payment.provider]}
+              {reservation.payment.last4 && (
+                <span className="text-[color:var(--color-text-muted)]">
+                  · ••{reservation.payment.last4}
+                </span>
+              )}
+            </span>
+            <Badge tone={paymentStatusTone[reservation.payment.status]} className="self-start text-[10px]">
+              {paymentStatusLabel[reservation.payment.status]}
+            </Badge>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs text-[color:var(--color-text-muted)]">
+            <ShieldOff size={12} strokeWidth={1.75} />
+            Sin pago
+          </span>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-5 py-3 text-right font-medium">
         {formatCurrency(reservation.totalPrice)}
       </td>
       <td className="px-5 py-3 text-right">
         <div className="inline-flex flex-wrap items-center justify-end gap-2 text-xs">
           {reservation.status === "PENDING" && (
-            <button
-              type="button"
-              onClick={() => action("confirm")}
-              disabled={pending}
-              className="rounded-full bg-[color:var(--color-success)]/15 px-3 py-1 font-medium text-[color:var(--color-success)] disabled:opacity-50"
-            >
-              Confirmar
-            </button>
-          )}
-          {reservation.status !== "CANCELLED" &&
-            reservation.status !== "COMPLETED" && (
+            <>
               <button
                 type="button"
-                onClick={() => action("cancel")}
+                onClick={() => action("confirm")}
                 disabled={pending}
-                className="rounded-full bg-[color:var(--color-error)]/12 px-3 py-1 font-medium text-[color:var(--color-error)] disabled:opacity-50"
+                className="rounded-full bg-[color:var(--color-success)]/15 px-3 py-1 font-medium text-[color:var(--color-success)] transition hover:bg-[color:var(--color-success)]/25 disabled:opacity-50"
               >
-                Cancelar
+                Aceptar
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => action("reject")}
+                disabled={pending}
+                className="rounded-full bg-[color:var(--color-error)]/12 px-3 py-1 font-medium text-[color:var(--color-error)] transition hover:bg-[color:var(--color-error)]/20 disabled:opacity-50"
+              >
+                Rechazar
+              </button>
+            </>
+          )}
+          {!isFinal && reservation.status !== "PENDING" && (
+            <button
+              type="button"
+              onClick={() => action("cancel")}
+              disabled={pending}
+              className="rounded-full bg-[color:var(--color-error)]/12 px-3 py-1 font-medium text-[color:var(--color-error)] transition hover:bg-[color:var(--color-error)]/20 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          )}
+          {isFinal && (
+            <span className="text-[color:var(--color-text-muted)]">—</span>
+          )}
         </div>
       </td>
     </tr>

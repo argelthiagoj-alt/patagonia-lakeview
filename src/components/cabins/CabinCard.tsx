@@ -35,6 +35,11 @@ export function CabinCard({ cabin, priority = false, className }: CabinCardProps
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0" />
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          {("proHost" in cabin && (cabin as { proHost?: boolean }).proHost) && (
+            <Badge tone="accent" className="bg-[color:var(--color-accent)]/95 text-white border-transparent">
+              ★ Anfitrión Pro
+            </Badge>
+          )}
           {cabin.lakeView && <Badge tone="dark">Vista al lago</Badge>}
           {cabin.maxGuests >= 6 && <Badge tone="dark">Para grupos</Badge>}
         </div>

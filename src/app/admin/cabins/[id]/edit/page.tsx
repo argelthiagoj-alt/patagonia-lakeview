@@ -19,6 +19,7 @@ export default async function EditCabinPage({
       include: {
         images: { orderBy: { order: "asc" } },
         amenities: { include: { amenity: true } },
+        beds: true,
       },
     });
   } catch {
@@ -53,11 +54,13 @@ export default async function EditCabinPage({
           maxGuests: cabin.maxGuests,
           pricePerNight: cabin.pricePerNight,
           cleaningFee: cabin.cleaningFee,
+          totalUnits: cabin.totalUnits,
           lakeView: cabin.lakeView,
           isActive: cabin.isActive,
           highlights: cabin.highlights ?? [],
           amenityKeys: cabin.amenities.map((a) => a.amenity.key),
           images: cabin.images.map((i) => ({ url: i.url, alt: i.alt ?? "" })),
+          beds: cabin.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
         }}
       />
     </div>

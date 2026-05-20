@@ -36,6 +36,12 @@ export async function POST(req: Request) {
         })
       : [];
 
+    // Deduplicate beds by type, summing quantities
+    const bedByType = new Map<string, number>();
+    for (const b of data.beds) {
+      bedByType.set(b.type, (bedByType.get(b.type) ?? 0) + b.quantity);
+    }
+
     const cabin = await prisma.cabin.create({
       data: {
         slug: data.slug,
@@ -49,6 +55,7 @@ export async function POST(req: Request) {
         bathrooms: data.bathrooms,
         pricePerNight: data.pricePerNight,
         cleaningFee: data.cleaningFee,
+        totalUnits: data.totalUnits,
         isActive: data.isActive,
         highlights: data.highlights,
         // Ownership: NEVER trust the client. Always set ownerId from the session.
@@ -62,6 +69,18 @@ export async function POST(req: Request) {
         },
         amenities: {
           create: amenities.map((a) => ({ amenityId: a.id })),
+        },
+        beds: {
+          create: Array.from(bedByType.entries()).map(([type, quantity]) => ({
+            type: type as
+              | "TWIN"
+              | "DOUBLE"
+              | "QUEEN"
+              | "KING"
+              | "SOFA_BED"
+              | "BUNK",
+            quantity,
+          })),
         },
       },
     });

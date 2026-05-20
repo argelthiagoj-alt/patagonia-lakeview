@@ -3,6 +3,8 @@ import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
 import { reservationSchema } from "@/lib/validations";
 import { computeBookingPrice, hasOverlap } from "@/lib/booking";
 import { getCurrentUser } from "@/lib/auth";
+import { detectCardBrand, lastFour } from "@/lib/payments";
+import { sendReservationReceivedEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -27,8 +29,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { cabinSlug, checkIn, checkOut, guests, guestName, guestEmail, notes } =
-    parsed.data;
+  const {
+    cabinSlug,
+    checkIn,
+    checkOut,
+    guests,
+    guestName,
+    guestEmail,
+    notes,
+    payment,
+  } = parsed.data;
 
   try {
     const cabin = await prisma.cabin.findUnique({
@@ -59,7 +69,19 @@ export async function POST(req: Request) {
       );
     }
 
-    if (hasOverlap(cabin.reservations, checkIn, checkOut)) {
+    // Unit-aware availability: count overlapping non-cancelled reservations
+    const overlapCount = cabin.reservations.filter(
+      (r) => r.status !== "CANCELLED" && r.status !== "REJECTED"
+    ).length;
+    if (overlapCount >= cabin.totalUnits) {
+      return NextResponse.json(
+        { error: "Esas fechas ya no están disponibles." },
+        { status: 409 }
+      );
+    }
+    // Keep the original overlap check as a belt-and-suspenders guard for
+    // cabins with totalUnits=1 (the legacy behaviour).
+    if (cabin.totalUnits === 1 && hasOverlap(cabin.reservations, checkIn, checkOut)) {
       return NextResponse.json(
         { error: "Esas fechas ya no están disponibles." },
         { status: 409 }
@@ -74,6 +96,49 @@ export async function POST(req: Request) {
     });
 
     const currentUser = await getCurrentUser();
+    if (currentUser?.isBanned) {
+      return NextResponse.json(
+        {
+          error:
+            "Tu cuenta está suspendida. No podés reservar mientras esté en este estado.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Shared billing snapshot (lives on Payment, not on Reservation)
+    const billing = {
+      documentId: payment.documentId,
+      phone: payment.phone,
+      billingAddress: payment.billingAddress,
+      city: payment.city,
+      state: payment.state,
+      country: payment.country,
+    };
+
+    // Simulated payment: we NEVER persist the full card number. Only last4 + brand.
+    const paymentData =
+      payment.provider === "CARD"
+        ? {
+            provider: "CARD" as const,
+            status: "SIMULATED_APPROVED" as const,
+            amount: price.total,
+            cardBrand: detectCardBrand(payment.number),
+            last4: lastFour(payment.number),
+            payerEmail: payment.email,
+            billingName: payment.cardholder,
+            ...billing,
+            simulated: true,
+          }
+        : {
+            provider: "MERCADO_PAGO" as const,
+            status: "SIMULATED_APPROVED" as const,
+            amount: price.total,
+            payerEmail: payment.email,
+            billingName: guestName,
+            ...billing,
+            simulated: true,
+          };
 
     const reservation = await prisma.reservation.create({
       data: {
@@ -87,8 +152,20 @@ export async function POST(req: Request) {
         notes,
         totalPrice: price.total,
         status: "PENDING",
+        payment: { create: paymentData },
       },
+      include: { payment: true, cabin: { select: { title: true } } },
     });
+
+    // Optional notification — don't block on it
+    void sendReservationReceivedEmail({
+      to: guestEmail,
+      guestName,
+      cabinTitle: reservation.cabin.title,
+      checkIn,
+      checkOut,
+      total: price.total,
+    }).catch(() => undefined);
 
     return NextResponse.json({ reservation, price }, { status: 201 });
   } catch (err) {

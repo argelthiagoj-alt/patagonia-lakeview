@@ -56,11 +56,19 @@ export function CabinCatalog({ cabins, initial }: Props) {
   );
   const [sort, setSort] = useState<Sort>("recent");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [selectedBeds, setSelectedBeds] = useState<Set<string>>(new Set());
 
   // Universe of amenity keys used by the current cabin set
   const availableAmenities = useMemo(() => {
     const set = new Set<Amenity>();
     cabins.forEach((c) => c.amenities.forEach((a) => set.add(a)));
+    return Array.from(set);
+  }, [cabins]);
+
+  // Universe of bed types present in current cabin set
+  const availableBeds = useMemo(() => {
+    const set = new Set<string>();
+    cabins.forEach((c) => (c.beds ?? []).forEach((b) => set.add(b.type)));
     return Array.from(set);
   }, [cabins]);
 
@@ -88,11 +96,19 @@ export function CabinCatalog({ cabins, initial }: Props) {
           if (!c.amenities.includes(a)) return false;
         }
       }
+      if (selectedBeds.size > 0) {
+        const cabinBedTypes = new Set((c.beds ?? []).map((b) => b.type));
+        for (const b of selectedBeds) {
+          if (!cabinBedTypes.has(b as never)) return false;
+        }
+      }
       if (validDateRange) {
-        const conflict = c.reservations.some((r) =>
+        // Count overlapping reservations and compare against total units.
+        const overlapping = c.reservations.filter((r) =>
           rangesOverlap(new Date(r.checkIn), new Date(r.checkOut), ci, co)
-        );
-        if (conflict) return false;
+        ).length;
+        const total = c.totalUnits ?? 1;
+        if (total - overlapping <= 0) return false;
       }
       return true;
     });
@@ -112,6 +128,13 @@ export function CabinCatalog({ cabins, initial }: Props) {
         break;
       // "recent" keeps the order from the server (createdAt asc)
     }
+
+    // Pro hosts ALWAYS surface first regardless of the chosen sort.
+    result = [...result].sort((a, b) => {
+      const aPro = a.proHost ? 1 : 0;
+      const bPro = b.proHost ? 1 : 0;
+      return bPro - aPro;
+    });
 
     return result;
   }, [
@@ -138,6 +161,7 @@ export function CabinCatalog({ cabins, initial }: Props) {
     checkOut,
     lakeOnly || null,
     selectedAmenities.size > 0 || null,
+    selectedBeds.size > 0 || null,
   ].filter((v) => v !== null && v !== "").length;
 
   function clear() {
@@ -150,6 +174,16 @@ export function CabinCatalog({ cabins, initial }: Props) {
     setCheckOut("");
     setLakeOnly(false);
     setSelectedAmenities(new Set());
+    setSelectedBeds(new Set());
+  }
+
+  function toggleBed(b: string) {
+    setSelectedBeds((prev) => {
+      const next = new Set(prev);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
+      return next;
+    });
   }
 
   function toggleAmenity(key: Amenity) {
@@ -343,6 +377,37 @@ export function CabinCatalog({ cabins, initial }: Props) {
                 })}
               </div>
             </div>
+
+            {availableBeds.length > 0 && (
+              <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                <p className="text-eyebrow">Camas</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableBeds.map((b) => {
+                    const active = selectedBeds.has(b);
+                    const label = (
+                      {
+                        TWIN: "Individual",
+                        DOUBLE: "Matrimonial",
+                        QUEEN: "Queen",
+                        KING: "King",
+                        SOFA_BED: "Sofá cama",
+                        BUNK: "Litera",
+                      } as Record<string, string>
+                    )[b];
+                    return (
+                      <FilterToggle
+                        key={b}
+                        active={active}
+                        onClick={() => toggleBed(b)}
+                        icon={<span className="text-[10px]">🛏</span>}
+                      >
+                        {label ?? b}
+                      </FilterToggle>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

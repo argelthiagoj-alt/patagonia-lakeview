@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { DemoLoginButtons } from "@/components/auth/DemoLoginButtons";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Ingresar" };
 
 export const dynamic = "force-dynamic";
 
+function demoEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+  );
+}
+
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect(isAdmin(user) ? "/admin" : "/dashboard");
+
+  const showDemo = demoEnabled();
+
   return (
     <section className="container-page grid min-h-[80vh] items-center pt-32 pb-24 md:grid-cols-2 md:gap-16">
       <div className="hidden md:block">
@@ -21,14 +32,19 @@ export default async function LoginPage() {
           Una cuenta para reservar más rápido, guardar cabañas y volver al lago
           cuando quieras.
         </p>
-        <div className="mt-8 rounded-2xl border border-dashed border-[color:var(--color-border)] bg-[color:var(--color-surface)]/60 p-5 text-xs leading-relaxed text-[color:var(--color-text-secondary)]">
-          <p className="font-medium text-[color:var(--color-text-primary)]">Demo</p>
-          <p>guest@patagonialakeview.com · guest1234</p>
-          <p>admin@patagonialakeview.com · admin1234</p>
-        </div>
+        {showDemo && (
+          <div className="mt-8 max-w-md">
+            <DemoLoginButtons />
+          </div>
+        )}
       </div>
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto w-full max-w-md space-y-6">
         <AuthForm mode="login" />
+        {showDemo && (
+          <div className="md:hidden">
+            <DemoLoginButtons />
+          </div>
+        )}
       </div>
     </section>
   );

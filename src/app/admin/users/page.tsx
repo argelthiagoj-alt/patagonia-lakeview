@@ -15,6 +15,9 @@ async function loadUsers(): Promise<UserRow[]> {
         role: true,
         createdAt: true,
         emailVerified: true,
+        isBanned: true,
+        adminPlan: true,
+        proUntil: true,
       },
     });
     return rows.map((u) => ({
@@ -24,6 +27,9 @@ async function loadUsers(): Promise<UserRow[]> {
       role: u.role,
       createdAt: u.createdAt.toISOString(),
       emailVerified: u.emailVerified ? u.emailVerified.toISOString() : null,
+      isBanned: u.isBanned,
+      adminPlan: u.adminPlan,
+      proUntil: u.proUntil ? u.proUntil.toISOString() : null,
     }));
   } catch {
     return [];

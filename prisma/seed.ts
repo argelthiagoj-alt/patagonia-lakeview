@@ -86,57 +86,88 @@ async function main() {
   await prisma.user.deleteMany();
 
   // ── Users ────────────────────────────────────────────────────────
-  const superPassword = await bcrypt.hash("owner1234", 10);
-  const adminPassword = await bcrypt.hash("admin1234", 10);
-  const guestPassword = await bcrypt.hash("guest1234", 10);
+  // Shared demo password — all demo accounts use the same one for portfolio simplicity.
+  const DEMO_PASSWORD = "demo1234";
+  const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const reviewerPassword = await bcrypt.hash("reviewer1234", 10);
 
   const superAdmin = await prisma.user.create({
     data: {
       name: "Elena Owner",
-      email: "owner@patagonialakeview.com",
-      passwordHash: superPassword,
+      email: "superadmin@patagonialakeview.demo",
+      passwordHash: demoHash,
       role: UserRole.SUPER_ADMIN,
       emailVerified: new Date(),
+      phone: "+54 9 294 555 0001",
+      city: "Bariloche",
+      country: "Argentina",
     },
   });
 
   const adminLucia = await prisma.user.create({
     data: {
-      name: "Lucía Admin",
-      email: "admin@patagonialakeview.com",
-      passwordHash: adminPassword,
+      name: "Lucía · Anfitriona Pro",
+      email: "admin1@patagonialakeview.demo",
+      passwordHash: demoHash,
       role: UserRole.ADMIN,
       emailVerified: new Date(),
+      adminPlan: "PRO",
+      proUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      phone: "+54 9 294 555 0011",
+      city: "Villa La Angostura",
+      country: "Argentina",
     },
   });
 
   const adminMartin = await prisma.user.create({
     data: {
       name: "Martín Admin",
-      email: "admin2@patagonialakeview.com",
-      passwordHash: adminPassword,
+      email: "admin2@patagonialakeview.demo",
+      passwordHash: demoHash,
       role: UserRole.ADMIN,
       emailVerified: new Date(),
+      phone: "+54 9 294 555 0012",
+      city: "El Bolsón",
+      country: "Argentina",
+    },
+  });
+
+  const adminSofia = await prisma.user.create({
+    data: {
+      name: "Sofía Admin",
+      email: "admin3@patagonialakeview.demo",
+      passwordHash: demoHash,
+      role: UserRole.ADMIN,
+      emailVerified: new Date(),
+      phone: "+54 9 294 555 0013",
+      city: "San Martín de los Andes",
+      country: "Argentina",
     },
   });
 
   const guest = await prisma.user.create({
     data: {
       name: "Tomás Huésped",
-      email: "guest@patagonialakeview.com",
-      passwordHash: guestPassword,
+      email: "user@patagonialakeview.demo",
+      passwordHash: demoHash,
       role: UserRole.USER,
       emailVerified: new Date(),
+      phone: "+54 9 11 5555 1234",
+      documentId: "32.456.789",
+      address: "Av. Siempreviva 742",
+      city: "Buenos Aires",
+      state: "CABA",
+      country: "Argentina",
+      billingName: "Tomás Huésped",
     },
   });
 
-  // Owner assignment per cabin slug — distributes ownership across the two admins.
+  // Owner assignment per cabin slug — Lucía has 2 (one PRO), Martín + Sofía one each.
   const ownerBySlug: Record<string, string> = {
     "arrayan-lake-cabin": adminLucia.id,
     "cipres-forest-lodge": adminLucia.id,
     "condor-mountain-refuge": adminMartin.id,
-    "lenga-superior-cabin": adminMartin.id,
+    "lenga-superior-cabin": adminSofia.id,
   };
 
   // Extra reviewer users so each review has a distinct authored account
@@ -176,9 +207,47 @@ async function main() {
   const amenityByKey = new Map(amenityRecords.map((a) => [a.key, a]));
   console.log(`  ✓ Amenities created: ${amenityRecords.length}`);
 
+  // Per-cabin: number of identical units + bed configuration
+  const cabinExtras: Record<
+    string,
+    {
+      totalUnits: number;
+      beds: { type: "TWIN" | "DOUBLE" | "QUEEN" | "KING" | "SOFA_BED" | "BUNK"; quantity: number }[];
+    }
+  > = {
+    "arrayan-lake-cabin": {
+      totalUnits: 2,
+      beds: [
+        { type: "QUEEN", quantity: 1 },
+        { type: "TWIN", quantity: 2 },
+      ],
+    },
+    "cipres-forest-lodge": {
+      totalUnits: 3,
+      beds: [
+        { type: "DOUBLE", quantity: 2 },
+        { type: "TWIN", quantity: 2 },
+        { type: "SOFA_BED", quantity: 1 },
+      ],
+    },
+    "condor-mountain-refuge": {
+      totalUnits: 1,
+      beds: [{ type: "QUEEN", quantity: 1 }],
+    },
+    "lenga-superior-cabin": {
+      totalUnits: 1,
+      beds: [
+        { type: "KING", quantity: 2 },
+        { type: "QUEEN", quantity: 2 },
+        { type: "SOFA_BED", quantity: 2 },
+      ],
+    },
+  };
+
   // ── Cabins ───────────────────────────────────────────────────────
   for (const c of cabinSeed) {
     const ownerId = ownerBySlug[c.slug] ?? superAdmin.id;
+    const extras = cabinExtras[c.slug] ?? { totalUnits: 1, beds: [] };
     const cabin = await prisma.cabin.create({
       data: {
         slug: c.slug,
@@ -195,6 +264,7 @@ async function main() {
         rating: c.rating,
         reviewCount: c.reviewCount,
         highlights: c.highlights,
+        totalUnits: extras.totalUnits,
         ownerId,
         images: {
           create: c.images.map((img, i) => ({
@@ -208,6 +278,9 @@ async function main() {
             .map((a) => amenityByKey.get(a))
             .filter((a): a is NonNullable<typeof a> => Boolean(a))
             .map((a) => ({ amenityId: a.id })),
+        },
+        beds: {
+          create: extras.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
         },
       },
     });
@@ -232,20 +305,28 @@ async function main() {
     );
   }
 
-  // ── Sample reservations ──────────────────────────────────────────
+  // ── Sample reservations + simulated payments ─────────────────────
   const arrayan = await prisma.cabin.findUnique({
     where: { slug: "arrayan-lake-cabin" },
   });
   const lenga = await prisma.cabin.findUnique({
     where: { slug: "lenga-superior-cabin" },
   });
+  const cipres = await prisma.cabin.findUnique({
+    where: { slug: "cipres-forest-lodge" },
+  });
 
+  function daysFromNow(d: number) {
+    const x = new Date();
+    x.setDate(x.getDate() + d);
+    return x;
+  }
+
+  // 1. CONFIRMED + payment CAPTURED
   if (arrayan) {
-    const checkIn = new Date();
-    checkIn.setDate(checkIn.getDate() + 21);
-    const checkOut = new Date(checkIn);
-    checkOut.setDate(checkIn.getDate() + 3);
-
+    const checkIn = daysFromNow(21);
+    const checkOut = daysFromNow(24);
+    const total = arrayan.pricePerNight * 3 + arrayan.cleaningFee;
     await prisma.reservation.create({
       data: {
         userId: guest.id,
@@ -255,18 +336,28 @@ async function main() {
         checkIn,
         checkOut,
         guests: 2,
-        totalPrice: arrayan.pricePerNight * 3 + arrayan.cleaningFee,
+        totalPrice: total,
         status: "CONFIRMED",
+        payment: {
+          create: {
+            provider: "CARD",
+            status: "SIMULATED_CAPTURED",
+            amount: total,
+            cardBrand: "VISA",
+            last4: "4242",
+            payerEmail: guest.email,
+            simulated: true,
+          },
+        },
       },
     });
   }
 
+  // 2. PENDING + payment APPROVED (awaiting admin decision)
   if (lenga) {
-    const checkIn = new Date();
-    checkIn.setDate(checkIn.getDate() + 60);
-    const checkOut = new Date(checkIn);
-    checkOut.setDate(checkIn.getDate() + 4);
-
+    const checkIn = daysFromNow(60);
+    const checkOut = daysFromNow(64);
+    const total = lenga.pricePerNight * 4 + lenga.cleaningFee;
     await prisma.reservation.create({
       data: {
         userId: guest.id,
@@ -276,21 +367,62 @@ async function main() {
         checkIn,
         checkOut,
         guests: 6,
-        totalPrice: lenga.pricePerNight * 4 + lenga.cleaningFee,
+        totalPrice: total,
         status: "PENDING",
+        payment: {
+          create: {
+            provider: "MERCADO_PAGO",
+            status: "SIMULATED_APPROVED",
+            amount: total,
+            payerEmail: guest.email,
+            simulated: true,
+          },
+        },
       },
     });
   }
 
-  console.log(`  ✓ Sample reservations created`);
+  // 3. REJECTED + payment REFUNDED (so the UI shows the refund banner)
+  if (cipres) {
+    const checkIn = daysFromNow(-30);
+    const checkOut = daysFromNow(-26);
+    const total = cipres.pricePerNight * 4 + cipres.cleaningFee;
+    await prisma.reservation.create({
+      data: {
+        userId: guest.id,
+        cabinId: cipres.id,
+        guestName: guest.name ?? "Tomás",
+        guestEmail: guest.email,
+        checkIn,
+        checkOut,
+        guests: 4,
+        totalPrice: total,
+        status: "REJECTED",
+        payment: {
+          create: {
+            provider: "CARD",
+            status: "SIMULATED_REFUNDED",
+            amount: total,
+            cardBrand: "MASTERCARD",
+            last4: "5454",
+            payerEmail: guest.email,
+            simulated: true,
+          },
+        },
+      },
+    });
+  }
+
+  console.log(`  ✓ Sample reservations + payments created`);
 
   console.log(`
-✨ Seed complete
+✨ Seed complete · Demo password for every account: ${DEMO_PASSWORD}
 
-  Super-admin → owner@patagonialakeview.com / owner1234   (sees everything)
-  Admin       → admin@patagonialakeview.com / admin1234   (owns Arrayán + Ciprés)
-  Admin       → admin2@patagonialakeview.com / admin1234  (owns Cóndor + Lenga)
-  Guest       → guest@patagonialakeview.com / guest1234
+  superadmin@patagonialakeview.demo   SUPER_ADMIN, sees everything
+  admin1@patagonialakeview.demo       ADMIN · Pro Host · owns Arrayán + Ciprés
+  admin2@patagonialakeview.demo       ADMIN · owns Cóndor Mountain Refuge
+  admin3@patagonialakeview.demo       ADMIN · owns Lenga Superior Cabin
+  user@patagonialakeview.demo         USER · perfil + 3 reservas demo
 `);
 }
 

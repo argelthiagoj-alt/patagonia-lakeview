@@ -75,6 +75,7 @@ export async function PATCH(
           ...(data.cleaningFee !== undefined && {
             cleaningFee: data.cleaningFee,
           }),
+          ...(data.totalUnits !== undefined && { totalUnits: data.totalUnits }),
           ...(data.isActive !== undefined && { isActive: data.isActive }),
           ...(data.highlights !== undefined && { highlights: data.highlights }),
         },
@@ -99,6 +100,29 @@ export async function PATCH(
         if (amenities.length > 0) {
           await tx.cabinAmenity.createMany({
             data: amenities.map((a) => ({ cabinId: id, amenityId: a.id })),
+          });
+        }
+      }
+
+      if (data.beds !== undefined) {
+        const bedByType = new Map<string, number>();
+        for (const b of data.beds) {
+          bedByType.set(b.type, (bedByType.get(b.type) ?? 0) + b.quantity);
+        }
+        await tx.cabinBed.deleteMany({ where: { cabinId: id } });
+        if (bedByType.size > 0) {
+          await tx.cabinBed.createMany({
+            data: Array.from(bedByType.entries()).map(([type, quantity]) => ({
+              cabinId: id,
+              type: type as
+                | "TWIN"
+                | "DOUBLE"
+                | "QUEEN"
+                | "KING"
+                | "SOFA_BED"
+                | "BUNK",
+              quantity,
+            })),
           });
         }
       }

@@ -13,6 +13,7 @@ export {
   ADMIN_ROLES,
   canManageCabin,
   isAdmin,
+  isProHost,
   isSuperAdmin,
 } from "@/lib/auth-roles";
 export type { CurrentUser, Role };
@@ -83,6 +84,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       name: session.user.name,
       role: session.user.role,
       emailVerified: session.user.emailVerified,
+      isBanned: session.user.isBanned,
+      adminPlan: session.user.adminPlan,
+      proUntil: session.user.proUntil,
     };
   } catch {
     return null;

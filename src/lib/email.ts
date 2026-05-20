@@ -16,8 +16,13 @@ import {
   emailVerificationEmail,
   jobApplicationEmail,
   passwordResetEmail,
+  reservationConfirmedEmail,
+  reservationReceivedEmail,
+  reservationRejectedEmail,
   type EmailContent,
   type JobApplicationPayload,
+  type ReservationEmailPayload,
+  type ReservationRejectedPayload,
 } from "@/lib/email-templates";
 
 const FROM_DEFAULT = "Patagonia Lakeview <onboarding@resend.dev>";
@@ -143,6 +148,29 @@ export async function sendEmailVerificationCode(
   code: string
 ): Promise<EmailDeliveryResult> {
   return sendTemplated(email, emailVerificationEmail(code));
+}
+
+/* ─────────── Reservation lifecycle ─────────── */
+
+export async function sendReservationReceivedEmail(
+  payload: ReservationEmailPayload & { to: string }
+): Promise<EmailDeliveryResult> {
+  const { to, ...d } = payload;
+  return sendTemplated(to, reservationReceivedEmail(d));
+}
+
+export async function sendReservationConfirmedEmail(
+  payload: ReservationEmailPayload & { to: string }
+): Promise<EmailDeliveryResult> {
+  const { to, ...d } = payload;
+  return sendTemplated(to, reservationConfirmedEmail(d));
+}
+
+export async function sendReservationRejectedEmail(
+  payload: ReservationRejectedPayload & { to: string }
+): Promise<EmailDeliveryResult> {
+  const { to, ...d } = payload;
+  return sendTemplated(to, reservationRejectedEmail(d));
 }
 
 /**
