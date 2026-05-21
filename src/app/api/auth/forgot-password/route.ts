@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
-import { forgotPasswordSchema } from "@/lib/validations";
-import {
-  generateNumericCode,
-  hashCode,
-  PASSWORD_RESET_TTL_MS,
-} from "@/lib/codes";
-import { sendPasswordResetCode } from "@/lib/email";
+import { isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
+import { forgotPasswordSchema } from "@/modules/auth/schemas";
+import { requestPasswordReset } from "@/modules/auth/service";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const GENERIC_RESPONSE = {
@@ -15,7 +10,6 @@ const GENERIC_RESPONSE = {
 };
 
 export async function POST(req: Request) {
-  // Rate limit per IP (3 every 15 min) — independent of email existence
   const ip = clientIp(req);
   const rl = checkRateLimit({
     key: `forgot:${ip}`,
@@ -38,10 +32,7 @@ export async function POST(req: Request) {
 
   const parsed = forgotPasswordSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Email inválido" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Email inválido" }, { status: 400 });
   }
 
   if (!isDbConfigured()) {
@@ -51,31 +42,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const { email } = parsed.data;
-
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    // If user exists and has a password (not OAuth-only), create + send code.
-    // Otherwise we silently no-op so we never reveal whether the email exists.
-    if (user && user.passwordHash) {
-      const code = generateNumericCode(6);
-      const codeHash = await hashCode(code);
-      const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-
-      // Invalidate any prior unused codes
-      await prisma.passwordResetCode.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() },
-      });
-
-      await prisma.passwordResetCode.create({
-        data: { userId: user.id, codeHash, expiresAt },
-      });
-
-      await sendPasswordResetCode(user.email, code);
-    }
-
+    await requestPasswordReset(parsed.data.email);
     return NextResponse.json(GENERIC_RESPONSE);
   } catch (err) {
     console.error("[POST /api/auth/forgot-password]", err);

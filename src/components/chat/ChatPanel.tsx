@@ -23,7 +23,14 @@ type State =
   | { kind: "ready"; messages: Message[]; currentUserId: string }
   | { kind: "error"; message: string };
 
-export function ChatPanel({ reservationId }: { reservationId: string }) {
+export function ChatPanel({
+  reservationId,
+  fill = false,
+}: {
+  reservationId: string;
+  /** When true the panel grows to fit its container (use inside a drawer). */
+  fill?: boolean;
+}) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -105,7 +112,12 @@ export function ChatPanel({ reservationId }: { reservationId: string }) {
   }
 
   return (
-    <div className="surface-paper flex h-[480px] flex-col overflow-hidden p-0">
+    <div
+      className={cn(
+        "surface-paper flex flex-col overflow-hidden p-0",
+        fill ? "h-full" : "h-[480px]"
+      )}
+    >
       <header className="flex items-center gap-2 border-b border-[color:var(--color-border)] px-5 py-3">
         <MessageSquare size={14} strokeWidth={1.75} />
         <p className="text-sm font-medium">Chat con {""}

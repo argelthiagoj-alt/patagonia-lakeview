@@ -1,25 +1,13 @@
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isSuperAdmin } from "@/shared/auth-roles";
+import { listAllUsers } from "@/modules/users/repo";
 import { UsersTable, type UserRow } from "@/components/admin/UsersTable";
 
 async function loadUsers(): Promise<UserRow[]> {
   try {
-    const rows = await prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        emailVerified: true,
-        isBanned: true,
-        adminPlan: true,
-        proUntil: true,
-      },
-    });
+    const rows = await listAllUsers();
     return rows.map((u) => ({
       id: u.id,
       name: u.name,

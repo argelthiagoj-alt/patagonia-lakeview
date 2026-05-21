@@ -1,50 +1,23 @@
 import { CalendarCheck, CircleDollarSign, Home, Hourglass, ShieldCheck } from "lucide-react";
-import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
-import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isSuperAdmin } from "@/shared/auth-roles";
+import {
+  aggregateAdminMetrics,
+  findRecentForAdmin,
+} from "@/modules/reservations/repo";
 
 async function loadMetrics(userId: string, viewAll: boolean) {
-  // For admins, "their" reservations = those on cabins they own.
-  const cabinFilter = viewAll ? undefined : { ownerId: userId };
-  const reservationFilter = viewAll
-    ? undefined
-    : { cabin: { ownerId: userId } };
-
   try {
-    const [totalRes, pending, cabins, revenue] = await Promise.all([
-      prisma.reservation.count({ where: reservationFilter }),
-      prisma.reservation.count({
-        where: { ...reservationFilter, status: "PENDING" },
-      }),
-      prisma.cabin.count({ where: { ...cabinFilter, isActive: true } }),
-      prisma.reservation.aggregate({
-        _sum: { totalPrice: true },
-        where: {
-          ...reservationFilter,
-          status: { in: ["CONFIRMED", "COMPLETED"] },
-        },
-      }),
-    ]);
-    return {
-      totalRes,
-      pending,
-      cabins,
-      revenue: revenue._sum.totalPrice ?? 0,
-    };
+    return await aggregateAdminMetrics(viewAll ? null : userId);
   } catch {
     return { totalRes: 0, pending: 0, cabins: 0, revenue: 0 };
   }
 }
 
 async function loadRecent(userId: string, viewAll: boolean) {
-  const where = viewAll ? undefined : { cabin: { ownerId: userId } };
   try {
-    return await prisma.reservation.findMany({
-      where,
-      take: 6,
-      orderBy: { createdAt: "desc" },
-      include: { cabin: { select: { title: true } } },
-    });
+    return await findRecentForAdmin(viewAll ? null : userId, 6);
   } catch {
     return [];
   }

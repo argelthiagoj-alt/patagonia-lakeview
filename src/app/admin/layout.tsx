@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isAdmin } from "@/shared/auth-roles";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export const dynamic = "force-dynamic";

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
-import { profileSchema, type ProfileInput } from "@/lib/validations";
+import { profileSchema, type ProfileInput } from "@/modules/users/schemas";
 
 export type ProfileData = {
   name: string | null;

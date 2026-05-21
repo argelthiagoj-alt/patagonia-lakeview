@@ -2,8 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeft, CalendarDays, Users, CreditCard, Wallet } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isSuperAdmin } from "@/shared/auth-roles";
+import { findReservationForAdmin } from "@/modules/reservations/repo";
 import { Badge } from "@/components/ui/Badge";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { formatCurrency } from "@/lib/utils";
@@ -11,7 +12,7 @@ import {
   paymentProviderLabel,
   paymentStatusLabel,
   paymentStatusTone,
-} from "@/lib/payments";
+} from "@/modules/payments/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -25,16 +26,7 @@ export default async function AdminReservationDetail({
 
   let r;
   try {
-    r = await prisma.reservation.findUnique({
-      where: { id },
-      include: {
-        cabin: {
-          select: { ownerId: true, title: true, location: true, slug: true },
-        },
-        payment: true,
-        user: { select: { name: true, email: true, phone: true } },
-      },
-    });
+    r = await findReservationForAdmin(id);
   } catch {
     notFound();
   }

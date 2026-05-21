@@ -7,8 +7,10 @@ import {
   LogOut,
   Users,
   ShieldCheck,
+  Flag,
+  Heart,
 } from "lucide-react";
-import { isAdmin, isSuperAdmin, type CurrentUser } from "@/lib/auth-roles";
+import { isAdmin, isSuperAdmin, type CurrentUser } from "@/shared/auth-roles";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
 type NavItem = {
@@ -21,6 +23,7 @@ type NavItem = {
 const userNav: NavItem[] = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/dashboard/reservations", label: "Reservas", icon: CalendarCheck },
+  { href: "/dashboard/favoritos", label: "Favoritos", icon: Heart },
   { href: "/dashboard/profile", label: "Perfil", icon: User },
 ];
 
@@ -29,6 +32,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/cabins", label: "Cabañas", icon: Home },
   { href: "/admin/reservations", label: "Reservas", icon: CalendarCheck },
   { href: "/admin/users", label: "Usuarios", icon: Users, superAdminOnly: true },
+  { href: "/admin/appeals", label: "Apelaciones", icon: Flag, superAdminOnly: true },
 ];
 
 export function DashboardShell({

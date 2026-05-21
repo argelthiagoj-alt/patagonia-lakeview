@@ -1,27 +1,13 @@
 import { CalendarCheck } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { findReservationsForGuest } from "@/modules/reservations/repo";
 import { ReservationCard, type ReservationCardData } from "@/components/booking/ReservationCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LinkButton } from "@/components/ui/Button";
 
 async function loadAll(userId: string): Promise<ReservationCardData[]> {
   try {
-    const rows = await prisma.reservation.findMany({
-      where: { userId },
-      include: {
-        cabin: { select: { slug: true, title: true, location: true } },
-        payment: {
-          select: {
-            provider: true,
-            status: true,
-            cardBrand: true,
-            last4: true,
-          },
-        },
-      },
-      orderBy: { checkIn: "desc" },
-    });
+    const rows = await findReservationsForGuest(userId);
     return rows.map((r) => ({
       id: r.id,
       status: r.status,
@@ -38,6 +24,7 @@ async function loadAll(userId: string): Promise<ReservationCardData[]> {
             last4: r.payment.last4,
           }
         : null,
+      unreadMessages: r.conversation?._count.messages ?? 0,
     }));
   } catch {
     return [];

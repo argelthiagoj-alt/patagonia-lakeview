@@ -1,28 +1,15 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
-import { profileSchema } from "@/lib/validations";
+import { getCurrentUser } from "@/modules/auth/session";
+import { profileSchema } from "@/modules/users/schemas";
+import { findProfile } from "@/modules/users/repo";
+import { updateProfile } from "@/modules/users/service";
 
 export async function GET() {
   const me = await getCurrentUser();
   if (!me) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: me.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        documentId: true,
-        address: true,
-        city: true,
-        state: true,
-        country: true,
-        billingName: true,
-      },
-    });
+    const user = await findProfile(me.id);
     return NextResponse.json({ user });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -32,12 +19,6 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const me = await getCurrentUser();
   if (!me) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
-  if (me.isBanned) {
-    return NextResponse.json(
-      { error: "Tu cuenta está suspendida. Contactá a un administrador." },
-      { status: 403 }
-    );
-  }
 
   let body: unknown;
   try {
@@ -54,36 +35,16 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const data = parsed.data;
-
-  try {
-    const user = await prisma.user.update({
-      where: { id: me.id },
-      data: {
-        name: data.name,
-        phone: data.phone || null,
-        documentId: data.documentId || null,
-        address: data.address || null,
-        city: data.city || null,
-        state: data.state || null,
-        country: data.country || null,
-        billingName: data.billingName || null,
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        documentId: true,
-        address: true,
-        city: true,
-        state: true,
-        country: true,
-        billingName: true,
-      },
-    });
-    return NextResponse.json({ user });
-  } catch (err) {
-    console.error("[PATCH /api/me]", err);
+  const result = await updateProfile(me.id, me.isBanned, parsed.data);
+  if (!result.ok) {
+    if (result.reason === "BANNED") {
+      return NextResponse.json(
+        { error: "Tu cuenta está suspendida. Contactá a un administrador." },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+
+  return NextResponse.json({ user: result.user });
 }

@@ -20,8 +20,9 @@ enum AdminPlan {
 }
 
 enum ReservationStatus {
-  PENDING
-  CONFIRMED
+  PENDING      // solicitud creada, esperando aprobación del anfitrión
+  APPROVED    // anfitrión aprobó; esperando pago simulado del huésped
+  CONFIRMED   // pago simulado capturado; reserva activa
   REJECTED
   CANCELLED
   COMPLETED
@@ -53,6 +54,11 @@ enum AppealStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PropertyType {
+  CABIN  // hospedaje completo de un solo tipo, reservado como unidad
+  HOTEL  // hospedaje multi-room, reservado por tipo de habitación
 }
 
 model User {
@@ -93,6 +99,7 @@ model User {
   sentMessages           Message[]               @relation("MessageSender")
   appealsFiled           ReviewAppeal[]          @relation("AppealAdmin")
   appealsResolved        ReviewAppeal[]          @relation("AppealResolvedBy")
+  favorites              Favorite[]              @relation("UserFavorites")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -150,6 +157,8 @@ model EmailVerificationCode {
   @@index([userId])
 }
 
+/// Property: CABIN o HOTEL. El modelo sigue llamándose Cabin para no
+/// romper imports existentes; "Cabin" es ahora "publicación".
 model Cabin {
   id               String   @id @default(cuid())
   slug             String   @unique
@@ -169,18 +178,62 @@ model Cabin {
   highlights       String[] @default([])
   totalUnits       Int      @default(1)
 
+  // Marketplace
+  propertyType PropertyType @default(CABIN)
+
+  // Geolocalización (opcional). Si ambas son null, el mapa cae al link
+  // genérico de búsqueda.
+  latitude  Float?
+  longitude Float?
+
+  // Reglas / política de cancelación editables por el admin.
+  cancellationPolicy String?
+  houseRules         String?
+  checkInTime        String? // ej. "15:00"
+  checkOutTime       String? // ej. "11:00"
+
+  // Datos del anfitrión visibles en la ficha (cabañas). Para hoteles se
+  // muestra info institucional (description + location alcanzan).
+  hostDisplayName String?
+  hostBio         String?
+  hostPhoto       String?
+  hostCity        String?
+  hostingSince    DateTime?
+
+  // Features booleanas para filtros rápidos. Algunas aplican a cabañas
+  // (TV, wifi, calefacción, AC, cobertura telefónica); el resto son
+  // típicas de hoteles. Default false para no romper data existente.
+  hasTv               Boolean @default(false)
+  hasWifi             Boolean @default(false)
+  hasHeating          Boolean @default(false)
+  hasAirConditioning  Boolean @default(false)
+  hasPhoneSignal      Boolean @default(false)
+  hasRestaurant       Boolean @default(false)
+  hasElevator         Boolean @default(false)
+  has24hReception     Boolean @default(false)
+  hasRoomService      Boolean @default(false)
+  hasBreakfast        Boolean @default(false)
+  hasSpa              Boolean @default(false)
+  hasGym              Boolean @default(false)
+  hasPool             Boolean @default(false)
+  hasParking          Boolean @default(false)
+  hasAccessibility    Boolean @default(false)
+
   ownerId String
   owner   User   @relation("CabinOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   images       CabinImage[]
   amenities    CabinAmenity[]
   beds         CabinBed[]
+  roomTypes    RoomType[]
   reservations Reservation[]
   reviews      Review[]
+  favoritedBy  Favorite[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   @@index([ownerId])
+  @@index([propertyType])
 }
 
 model CabinImage {
@@ -222,10 +275,59 @@ model CabinBed {
   @@index([cabinId])
 }
 
+/// Para hoteles: tipos de habitación dentro de una publicación.
+/// Cada RoomType define su propia capacidad, precio, inventario
+/// (totalUnits) y camas.
+model RoomType {
+  id           String   @id @default(cuid())
+  cabinId      String
+  name         String
+  description  String?
+  pricePerNight Int
+  maxGuests    Int
+  totalUnits   Int     @default(1)
+  /// Amenities específicos de este tipo de habitación, como array de
+  /// keys libre. Mantiene el modelo simple; el filtro público se hace
+  /// sobre las columnas booleanas del Cabin padre.
+  amenities    String[] @default([])
+  beds         RoomBed[]
+  reservations Reservation[]
+  cabin        Cabin   @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([cabinId])
+}
+
+model RoomBed {
+  id         String   @id @default(cuid())
+  roomTypeId String
+  type       BedType
+  quantity   Int      @default(1)
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([roomTypeId, type])
+}
+
+/// Favoritos del usuario sobre publicaciones (cabañas u hoteles).
+model Favorite {
+  userId    String
+  cabinId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation("UserFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  cabin Cabin @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cabinId])
+  @@index([cabinId])
+}
+
 model Reservation {
   id         String            @id @default(cuid())
   userId     String?
   cabinId    String
+  /// Para hoteles: qué tipo de habitación se reservó (null para CABIN).
+  roomTypeId String?
   guestName  String
   guestEmail String
   checkIn    DateTime
@@ -236,6 +338,7 @@ model Reservation {
   notes      String?
   user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   cabin      Cabin             @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  roomType   RoomType?         @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
   payment    Payment?
   conversation Conversation?
   review       Review?
@@ -243,6 +346,7 @@ model Reservation {
   updatedAt  DateTime          @updatedAt
 
   @@index([cabinId, checkIn, checkOut])
+  @@index([roomTypeId])
   @@index([userId])
 }
 
@@ -252,7 +356,7 @@ model Payment {
   id            String          @id @default(cuid())
   reservationId String          @unique
   provider      PaymentProvider
-  status        PaymentStatus   @default(SIMULATED_APPROVED)
+  status        PaymentStatus   @default(SIMULATED_PENDING)
   amount        Int
   currency      String          @default("ARS")
   cardBrand     String?
@@ -278,10 +382,22 @@ model Review {
   userId        String
   cabinId       String
   reservationId String?  @unique
+  /// Rating general — promedio simple de las 6 categorías, calculado al
+  /// crear la review. Se mantiene como columna física para no recalcular
+  /// en cada query.
   rating        Int
   comment       String?
   isRemoved     Boolean  @default(false)
   removedReason String?
+
+  /// Desglose 1-5 por categoría. Default 5 para reviews legacy creadas
+  /// antes del split (que sólo tenían `rating`).
+  ratingCleanliness   Int @default(5)
+  ratingAccuracy      Int @default(5)
+  ratingCheckin       Int @default(5)
+  ratingCommunication Int @default(5)
+  ratingLocation      Int @default(5)
+  ratingValue         Int @default(5)
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   cabin         Cabin    @relation(fields: [cabinId], references: [id], onDelete: Cascade)
   reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)

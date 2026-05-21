@@ -19,11 +19,15 @@ import { CabinCard } from "@/components/cabins/CabinCard";
 import { AmenityIcon } from "@/components/cabins/AmenityIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { amenityLabels, type Amenity } from "@/data/cabins";
-import type { CabinWithReservations } from "@/lib/db/cabins";
-import { rangesOverlap } from "@/lib/utils";
+import type { CabinWithReservations } from "@/modules/cabins/repo";
+import {
+  applyCabinFilters,
+  countActiveFilters,
+  type SortKey,
+} from "@/modules/cabins/filters";
 import { cn, formatCurrency } from "@/lib/utils";
 
-type Sort = "recent" | "price-asc" | "price-desc" | "rating" | "capacity";
+type Sort = SortKey;
 
 type Props = {
   cabins: CabinWithReservations[];
@@ -72,97 +76,41 @@ export function CabinCatalog({ cabins, initial }: Props) {
     return Array.from(set);
   }, [cabins]);
 
-  const filtered = useMemo(() => {
-    const ci = checkIn ? new Date(checkIn) : null;
-    const co = checkOut ? new Date(checkOut) : null;
-    const validDateRange = ci && co && co > ci;
+  const criteria = useMemo(
+    () => ({
+      search,
+      guests,
+      bedrooms,
+      minPrice,
+      maxPrice,
+      checkIn,
+      checkOut,
+      lakeOnly,
+      amenities: selectedAmenities,
+      beds: selectedBeds,
+      sort,
+    }),
+    [
+      search,
+      guests,
+      bedrooms,
+      minPrice,
+      maxPrice,
+      checkIn,
+      checkOut,
+      lakeOnly,
+      selectedAmenities,
+      selectedBeds,
+      sort,
+    ]
+  );
 
-    let result = cabins.filter((c) => {
-      if (
-        search &&
-        !`${c.title} ${c.location} ${c.shortDescription}`
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      ) {
-        return false;
-      }
-      if (guests !== null && c.maxGuests < guests) return false;
-      if (bedrooms !== null && c.bedrooms < bedrooms) return false;
-      if (minPrice !== null && c.pricePerNight < minPrice) return false;
-      if (maxPrice !== null && c.pricePerNight > maxPrice) return false;
-      if (lakeOnly && !c.lakeView) return false;
-      if (selectedAmenities.size > 0) {
-        for (const a of selectedAmenities) {
-          if (!c.amenities.includes(a)) return false;
-        }
-      }
-      if (selectedBeds.size > 0) {
-        const cabinBedTypes = new Set((c.beds ?? []).map((b) => b.type));
-        for (const b of selectedBeds) {
-          if (!cabinBedTypes.has(b as never)) return false;
-        }
-      }
-      if (validDateRange) {
-        // Count overlapping reservations and compare against total units.
-        const overlapping = c.reservations.filter((r) =>
-          rangesOverlap(new Date(r.checkIn), new Date(r.checkOut), ci, co)
-        ).length;
-        const total = c.totalUnits ?? 1;
-        if (total - overlapping <= 0) return false;
-      }
-      return true;
-    });
+  const filtered = useMemo(
+    () => applyCabinFilters(cabins, criteria),
+    [cabins, criteria]
+  );
 
-    switch (sort) {
-      case "price-asc":
-        result = [...result].sort((a, b) => a.pricePerNight - b.pricePerNight);
-        break;
-      case "price-desc":
-        result = [...result].sort((a, b) => b.pricePerNight - a.pricePerNight);
-        break;
-      case "rating":
-        result = [...result].sort((a, b) => b.rating - a.rating);
-        break;
-      case "capacity":
-        result = [...result].sort((a, b) => b.maxGuests - a.maxGuests);
-        break;
-      // "recent" keeps the order from the server (createdAt asc)
-    }
-
-    // Pro hosts ALWAYS surface first regardless of the chosen sort.
-    result = [...result].sort((a, b) => {
-      const aPro = a.proHost ? 1 : 0;
-      const bPro = b.proHost ? 1 : 0;
-      return bPro - aPro;
-    });
-
-    return result;
-  }, [
-    cabins,
-    search,
-    guests,
-    bedrooms,
-    minPrice,
-    maxPrice,
-    checkIn,
-    checkOut,
-    lakeOnly,
-    selectedAmenities,
-    sort,
-  ]);
-
-  const activeCount = [
-    search,
-    guests,
-    bedrooms,
-    minPrice,
-    maxPrice,
-    checkIn,
-    checkOut,
-    lakeOnly || null,
-    selectedAmenities.size > 0 || null,
-    selectedBeds.size > 0 || null,
-  ].filter((v) => v !== null && v !== "").length;
+  const activeCount = useMemo(() => countActiveFilters(criteria), [criteria]);
 
   function clear() {
     setSearch("");

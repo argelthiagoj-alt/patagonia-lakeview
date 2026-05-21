@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/auth";
-import { banUserSchema } from "@/lib/validations";
+import { requireSuperAdmin } from "@/modules/auth/session";
+import { banUserSchema } from "@/modules/users/schemas";
+import { banUser, unbanUser } from "@/modules/users/service";
 
 export async function PATCH(
   req: Request,
@@ -28,33 +28,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
-  if (id === me.id) {
-    return NextResponse.json(
-      { error: "No podés banearte a vos mismo." },
-      { status: 400 }
-    );
-  }
+  const result = parsed.data.isBanned
+    ? await banUser(me.id, id, parsed.data.reason || null)
+    : await unbanUser(me.id, id);
 
-  try {
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        isBanned: parsed.data.isBanned,
-        bannedAt: parsed.data.isBanned ? new Date() : null,
-        banReason: parsed.data.isBanned ? parsed.data.reason || null : null,
-        bannedById: parsed.data.isBanned ? me.id : null,
-      },
-      select: { id: true, isBanned: true, banReason: true, bannedAt: true },
-    });
-
-    // If banning: revoke active sessions so the user is logged out immediately
-    if (parsed.data.isBanned) {
-      await prisma.session.deleteMany({ where: { userId: id } }).catch(() => undefined);
+  if (!result.ok) {
+    if (result.reason === "SELF_NOT_ALLOWED") {
+      return NextResponse.json(
+        { error: "No podés banearte a vos mismo." },
+        { status: 400 }
+      );
     }
-
-    return NextResponse.json({ user: updated });
-  } catch (err) {
-    console.error("[PATCH /api/admin/users/:id/ban]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+
+  return NextResponse.json({ user: result.user });
 }

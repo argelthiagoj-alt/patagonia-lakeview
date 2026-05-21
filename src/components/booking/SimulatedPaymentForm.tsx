@@ -17,9 +17,9 @@ import {
   formatCardNumber,
   formatExpiry,
   type CardBrand,
-} from "@/lib/payments";
+} from "@/modules/payments/helpers";
 import { formatCurrency, cn } from "@/lib/utils";
-import type { PaymentInput } from "@/lib/validations";
+import type { PaymentInput } from "@/modules/payments/schemas";
 
 type Method = "CARD" | "MERCADO_PAGO";
 
@@ -48,7 +48,10 @@ type Props = {
   defaults?: CheckoutDefaults;
   pending: boolean;
   serverError: string | null;
-  onBack: () => void;
+  /** Optional: si no se pasa, no se muestra el botón "Volver". Útil cuando
+   *  el form vive en una página dedicada (ej. pagar una reserva ya
+   *  aprobada). */
+  onBack?: () => void;
   onSubmit: (payment: PaymentInput) => void;
 };
 
@@ -167,7 +170,7 @@ function CardForm({
 }: {
   defaults?: CheckoutDefaults;
   pending: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onSubmit: (payment: PaymentInput) => void;
 }) {
   const [cardholder, setCardholder] = useState(defaults?.name ?? "");
@@ -332,7 +335,7 @@ function MercadoPagoForm({
 }: {
   defaults?: CheckoutDefaults;
   pending: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onSubmit: (payment: PaymentInput) => void;
 }) {
   const [email, setEmail] = useState(defaults?.email ?? "");
@@ -540,14 +543,18 @@ function Actions({
   hideSubmit = false,
 }: {
   pending: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   hideSubmit?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 pt-2">
-      <Button type="button" variant="ghost" size="md" onClick={onBack} disabled={pending}>
-        ← Volver
-      </Button>
+      {onBack ? (
+        <Button type="button" variant="ghost" size="md" onClick={onBack} disabled={pending}>
+          ← Volver
+        </Button>
+      ) : (
+        <span />
+      )}
       {!hideSubmit && (
         <Button type="submit" variant="primary" size="md" disabled={pending}>
           {pending ? "Procesando…" : "Pagar simulado"}

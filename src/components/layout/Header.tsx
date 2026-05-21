@@ -7,13 +7,13 @@ import { Menu, X, LayoutDashboard, LogOut } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Logo } from "@/components/layout/Logo";
 import { cn } from "@/lib/utils";
-import { isAdmin, type CurrentUser } from "@/lib/auth-roles";
+import { isAdmin, type CurrentUser } from "@/shared/auth-roles";
 
 const navLinks = [
   { href: "/cabins", label: "Cabañas" },
-  { href: "/availability", label: "Disponibilidad" },
+  { href: "/destinos", label: "Destinos" },
   { href: "/about", label: "Experiencia" },
-  { href: "/contact", label: "Contacto" },
+  { href: "/soporte", label: "Soporte" },
 ];
 
 export function Header({ user }: { user: CurrentUser | null }) {
@@ -66,9 +66,11 @@ export function Header({ user }: { user: CurrentUser | null }) {
         <div
           className={cn(
             "flex items-center justify-between gap-6 rounded-full border px-4 transition-all duration-500",
+            // Always glass, so text stays legible over any background.
+            // Scrolled = stronger contrast + subtle lift; idle = softer.
             scrolled
               ? "surface-glass border-[color:var(--color-border)] py-2 shadow-[var(--shadow-soft)]"
-              : "border-transparent bg-transparent py-3"
+              : "surface-glass border-[color:var(--color-border)]/40 py-2.5 shadow-[0_2px_24px_rgba(31,27,22,0.06)]"
           )}
         >
           <Logo scrolled={scrolled} />
@@ -84,7 +86,7 @@ export function Header({ user }: { user: CurrentUser | null }) {
                     "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
                     active
                       ? "bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-primary)]"
-                      : "text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
+                      : "text-[color:var(--color-text-primary)]/80 hover:text-[color:var(--color-text-primary)]"
                   )}
                 >
                   {link.label}

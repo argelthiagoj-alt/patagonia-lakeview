@@ -12,12 +12,19 @@ import {
   paymentStatusTone,
   type PaymentProvider,
   type PaymentStatus,
-} from "@/lib/payments";
+} from "@/modules/payments/labels";
 
-type Status = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
+type Status =
+  | "PENDING"
+  | "APPROVED"
+  | "CONFIRMED"
+  | "REJECTED"
+  | "CANCELLED"
+  | "COMPLETED";
 
 const statusTone: Record<Status, "warning" | "success" | "error" | "stone"> = {
   PENDING: "warning",
+  APPROVED: "warning",
   CONFIRMED: "success",
   REJECTED: "error",
   CANCELLED: "error",
@@ -26,6 +33,7 @@ const statusTone: Record<Status, "warning" | "success" | "error" | "stone"> = {
 
 const statusLabel: Record<Status, string> = {
   PENDING: "Pendiente",
+  APPROVED: "Aprobada · sin pago",
   CONFIRMED: "Confirmada",
   REJECTED: "Rechazada",
   CANCELLED: "Cancelada",
@@ -58,8 +66,9 @@ export function AdminReservationRow({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  function action(act: "confirm" | "reject" | "cancel") {
-    if (act === "reject" && !confirm("¿Rechazar la reserva? El pago simulado va a quedar como devuelto.")) return;
+  function action(act: "approve" | "confirm" | "reject" | "cancel") {
+    if (act === "reject" && !confirm("¿Rechazar la reserva?")) return;
+    if (act === "cancel" && !confirm("¿Cancelar la reserva? Si tenía pago simulado se marca como devuelto.")) return;
     startTransition(async () => {
       await fetch(`/api/reservations/${reservation.id}`, {
         method: "PATCH",
@@ -77,7 +86,14 @@ export function AdminReservationRow({
 
   return (
     <tr>
-      <td className="px-5 py-3 font-medium">{reservation.cabinTitle}</td>
+      <td className="px-5 py-3 font-medium">
+        <a
+          href={`/admin/reservations/${reservation.id}`}
+          className="hover:underline"
+        >
+          {reservation.cabinTitle}
+        </a>
+      </td>
       <td className="px-5 py-3">
         <p className="whitespace-nowrap text-[color:var(--color-text-primary)]">
           {reservation.guestName}
@@ -132,11 +148,11 @@ export function AdminReservationRow({
             <>
               <button
                 type="button"
-                onClick={() => action("confirm")}
+                onClick={() => action("approve")}
                 disabled={pending}
                 className="rounded-full bg-[color:var(--color-success)]/15 px-3 py-1 font-medium text-[color:var(--color-success)] transition hover:bg-[color:var(--color-success)]/25 disabled:opacity-50"
               >
-                Aceptar
+                Aprobar
               </button>
               <button
                 type="button"
@@ -148,7 +164,20 @@ export function AdminReservationRow({
               </button>
             </>
           )}
-          {!isFinal && reservation.status !== "PENDING" && (
+          {reservation.status === "APPROVED" && (
+            <button
+              type="button"
+              onClick={() => action("cancel")}
+              disabled={pending}
+              className="rounded-full bg-[color:var(--color-error)]/12 px-3 py-1 font-medium text-[color:var(--color-error)] transition hover:bg-[color:var(--color-error)]/20 disabled:opacity-50"
+              title="Cancelar si el huésped no pagó"
+            >
+              Cancelar (sin pago)
+            </button>
+          )}
+          {!isFinal &&
+            reservation.status !== "PENDING" &&
+            reservation.status !== "APPROVED" && (
             <button
               type="button"
               onClick={() => action("cancel")}

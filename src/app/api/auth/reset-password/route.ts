@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
-import { resetPasswordSchema } from "@/lib/validations";
-import { verifyCode } from "@/lib/codes";
-import { hashPassword } from "@/lib/auth";
+import { isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
+import { resetPasswordSchema } from "@/modules/auth/schemas";
+import { applyPasswordReset } from "@/modules/auth/service";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -41,57 +40,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const { email, code, password } = parsed.data;
-
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      // Generic error — don't reveal whether email exists
+    const result = await applyPasswordReset(
+      parsed.data.email,
+      parsed.data.code,
+      parsed.data.password
+    );
+    if (!result.ok) {
       return NextResponse.json(
         { error: "Código inválido o vencido." },
         { status: 400 }
       );
     }
-
-    // Find the most recent unused, unexpired code for this user
-    const candidate = await prisma.passwordResetCode.findFirst({
-      where: {
-        userId: user.id,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!candidate) {
-      return NextResponse.json(
-        { error: "Código inválido o vencido." },
-        { status: 400 }
-      );
-    }
-
-    const matches = await verifyCode(code, candidate.codeHash);
-    if (!matches) {
-      return NextResponse.json(
-        { error: "Código inválido o vencido." },
-        { status: 400 }
-      );
-    }
-
-    // Update password + mark code used + invalidate all current sessions
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: await hashPassword(password) },
-      }),
-      prisma.passwordResetCode.update({
-        where: { id: candidate.id },
-        data: { usedAt: new Date() },
-      }),
-      prisma.session.deleteMany({ where: { userId: user.id } }),
-    ]);
-
     return NextResponse.json({
       message: "Contraseña actualizada. Ya podés iniciar sesión.",
     });

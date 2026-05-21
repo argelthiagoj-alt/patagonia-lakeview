@@ -7,31 +7,26 @@ import { format } from "date-fns";
 import { MapPin, CalendarDays, Users, CreditCard, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency } from "@/lib/utils";
+import { ReservationChatButton } from "@/components/chat/ReservationChatButton";
 import {
   paymentProviderLabel,
   paymentStatusLabel,
   paymentStatusTone,
   type PaymentProvider,
   type PaymentStatus,
-} from "@/lib/payments";
+} from "@/modules/payments/labels";
 
-type Status = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED";
+import {
+  canGuestCancelReservation,
+  getReservationDisplayStatus,
+  isFinalDisplay,
+  DISPLAY_STATUS_LABEL,
+  DISPLAY_STATUS_TONE,
+  type DbReservationStatus,
+} from "@/modules/reservations/status";
+import { useAppDate } from "@/components/demo/AppDateProvider";
 
-const statusTone: Record<Status, "warning" | "success" | "error" | "stone"> = {
-  PENDING: "warning",
-  CONFIRMED: "success",
-  REJECTED: "error",
-  CANCELLED: "error",
-  COMPLETED: "stone",
-};
-
-const statusLabel: Record<Status, string> = {
-  PENDING: "Pendiente de aprobación",
-  CONFIRMED: "Confirmada",
-  REJECTED: "Rechazada",
-  CANCELLED: "Cancelada",
-  COMPLETED: "Completada",
-};
+type Status = DbReservationStatus;
 
 export type ReservationCardData = {
   id: string;
@@ -51,11 +46,13 @@ export type ReservationCardData = {
     cardBrand: string | null;
     last4: string | null;
   } | null;
+  /** Inbound (host → guest) messages the user has not opened yet. */
+  unreadMessages?: number;
 };
 
 export function ReservationCard({
   reservation,
-  canCancel = true,
+  canCancel: canCancelProp = true,
 }: {
   reservation: ReservationCardData;
   canCancel?: boolean;
@@ -65,10 +62,23 @@ export function ReservationCard({
 
   const ci = new Date(reservation.checkIn);
   const co = new Date(reservation.checkOut);
-  const isFinal =
-    reservation.status === "CANCELLED" ||
-    reservation.status === "REJECTED" ||
-    reservation.status === "COMPLETED";
+  const appDate = useAppDate();
+  const display = getReservationDisplayStatus(
+    {
+      status: reservation.status,
+      checkIn: ci,
+      checkOut: co,
+    },
+    appDate
+  );
+  const isFinal = isFinalDisplay(display);
+  const canCancel =
+    canCancelProp === false
+      ? false
+      : canGuestCancelReservation(
+          { status: reservation.status, checkIn: ci, checkOut: co },
+          appDate
+        );
 
   function cancel() {
     if (!confirm("¿Cancelar esta reserva?")) return;
@@ -87,8 +97,8 @@ export function ReservationCard({
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={statusTone[reservation.status]}>
-              {statusLabel[reservation.status]}
+            <Badge tone={DISPLAY_STATUS_TONE[display]}>
+              {DISPLAY_STATUS_LABEL[display]}
             </Badge>
             <span className="inline-flex items-center gap-1 text-xs text-[color:var(--color-text-secondary)]">
               <MapPin size={12} strokeWidth={1.5} />
@@ -119,23 +129,13 @@ export function ReservationCard({
           <span className="text-2xl font-medium">
             {formatCurrency(reservation.totalPrice)}
           </span>
-          {canCancel && !isFinal && reservation.status === "CONFIRMED" && (
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={pending}
-              className="text-xs font-medium uppercase tracking-[0.16em] text-[color:var(--color-error)] underline-offset-4 hover:underline disabled:opacity-50"
-            >
-              {pending ? "Cancelando…" : "Cancelar reserva"}
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Payment block */}
-      {reservation.payment && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--color-border)] pt-4 text-xs">
-          <div className="flex flex-wrap items-center gap-3 text-[color:var(--color-text-secondary)]">
+      {/* Footer: payment info + inline actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--color-border)] pt-4">
+        {reservation.payment ? (
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[color:var(--color-text-secondary)]">
             <span className="inline-flex items-center gap-1.5 text-[color:var(--color-text-primary)]">
               {reservation.payment.provider === "CARD" ? (
                 <CreditCard size={13} strokeWidth={1.75} />
@@ -156,8 +156,41 @@ export function ReservationCard({
               Simulado
             </span>
           </div>
+        ) : (
+          <span />
+        )}
+
+        {/* Actions: chat (any non-rejected/cancelled state) + cancel (CONFIRMED only) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {reservation.status !== "REJECTED" &&
+            reservation.status !== "CANCELLED" && (
+              <ReservationChatButton
+                reservationId={reservation.id}
+                cabinTitle={reservation.cabin.title}
+                unreadCount={reservation.unreadMessages ?? 0}
+                variant="solid"
+              />
+            )}
+          {reservation.status === "APPROVED" && (
+            <Link
+              href={`/dashboard/reservations/${reservation.id}#pay`}
+              className="rounded-full bg-[color:var(--color-primary)] px-4 py-1.5 text-xs font-medium text-[color:var(--color-primary-foreground)] transition hover:bg-[color:var(--color-accent-hover)]"
+            >
+              Pagar ahora
+            </Link>
+          )}
+          {canCancel && (
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={pending}
+              className="rounded-full border border-[color:var(--color-border)] px-3.5 py-1.5 text-xs font-medium text-[color:var(--color-error)] transition hover:border-[color:var(--color-error)] hover:bg-[color:var(--color-error)]/8 disabled:opacity-50"
+            >
+              {pending ? "Cancelando…" : "Cancelar reserva"}
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {reservation.status === "REJECTED" && reservation.payment?.status === "SIMULATED_REFUNDED" && (
         <div className="rounded-xl border border-[color:var(--color-error)]/20 bg-[color:var(--color-error)]/8 p-3 text-xs text-[color:var(--color-error)]">

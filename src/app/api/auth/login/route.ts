@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
-import { loginSchema } from "@/lib/validations";
-import { createSession, verifyPassword } from "@/lib/auth";
-import { checkRateLimit, clientIp, resetRateLimit } from "@/lib/rate-limit";
+import { isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
+import { loginSchema } from "@/modules/auth/schemas";
+import { authenticate } from "@/modules/auth/service";
+import { createSession } from "@/modules/auth/session";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
+/**
+ * POST /api/auth/login
+ *
+ * Thin route — body parsing, coarse IP throttle, delegate auth domain to
+ * `authenticate()`, create session, serialize. Per-email lockout and
+ * credential checks live in the service.
+ */
 export async function POST(req: Request) {
   const ip = clientIp(req);
 
-  // Coarse per-IP throttle to deter password spraying
+  // Coarse per-IP throttle so password spraying is unviable
   const ipRl = checkRateLimit({
     key: `login-ip:${ip}`,
     max: 20,
@@ -44,50 +52,35 @@ export async function POST(req: Request) {
 
   const { email, password } = parsed.data;
 
-  // Per (email + IP) failed-attempts lockout: 5 within 10 minutes
-  const failKey = `login-fail:${ip}:${email.toLowerCase()}`;
-  const failRl = checkRateLimit({
-    key: failKey,
-    max: 5,
-    windowMs: 10 * 60_000,
-  });
-  if (!failRl.allowed) {
-    return NextResponse.json(
-      {
-        error:
-          "Demasiados intentos fallidos para este email. Esperá unos minutos o usá 'Olvidé mi contraseña'.",
-      },
-      { status: 429, headers: { "Retry-After": String(failRl.retryAfterSeconds) } }
-    );
-  }
-
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.passwordHash) {
-      return NextResponse.json(
-        { error: "Credenciales inválidas." },
-        { status: 401 }
-      );
-    }
-    const ok = await verifyPassword(password, user.passwordHash);
-    if (!ok) {
+    const result = await authenticate(email, password, ip);
+    if (!result.ok) {
+      if (result.reason === "LOCKED_OUT") {
+        return NextResponse.json(
+          {
+            error:
+              "Demasiados intentos fallidos para este email. Esperá unos minutos o usá 'Olvidé mi contraseña'.",
+          },
+          {
+            status: 429,
+            headers: { "Retry-After": String(result.retryAfterSeconds ?? 60) },
+          }
+        );
+      }
       return NextResponse.json(
         { error: "Credenciales inválidas." },
         { status: 401 }
       );
     }
 
-    // Success — clear the failure counter for this (email+IP)
-    resetRateLimit(failKey);
-
-    await createSession(user.id);
+    await createSession(result.user.id);
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        emailVerified: user.emailVerified,
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+        emailVerified: result.user.emailVerified,
       },
     });
   } catch (err) {

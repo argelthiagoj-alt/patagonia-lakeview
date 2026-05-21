@@ -1,23 +1,10 @@
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { findProfile } from "@/modules/users/repo";
 import { ProfileForm, type ProfileData } from "@/components/profile/ProfileForm";
 
 async function loadProfile(userId: string): Promise<ProfileData & { email: string }> {
   try {
-    const u = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true,
-        name: true,
-        phone: true,
-        documentId: true,
-        address: true,
-        city: true,
-        state: true,
-        country: true,
-        billingName: true,
-      },
-    });
+    const u = await findProfile(userId);
     if (u) return u;
   } catch {
     /* fall through */

@@ -36,10 +36,51 @@ Abrí http://localhost:3000
 
 ### Cuentas demo
 
-| Rol   | Email                              | Password    |
-| ----- | ---------------------------------- | ----------- |
-| Admin | `admin@patagonialakeview.com`      | `admin1234` |
-| User  | `guest@patagonialakeview.com`      | `guest1234` |
+Todas las cuentas comparten la misma contraseña: **`demo1234`**.
+
+| Rol           | Email                                  | Posesión                                      |
+| ------------- | -------------------------------------- | --------------------------------------------- |
+| SUPER_ADMIN   | `superadmin@patagonialakeview.demo`    | Ve todo · banear · roles · apelaciones        |
+| ADMIN · Pro   | `admin1@patagonialakeview.demo`        | Lucía · Arrayán + Ciprés                       |
+| ADMIN         | `admin2@patagonialakeview.demo`        | Martín · Cóndor Mountain Refuge                |
+| ADMIN         | `admin3@patagonialakeview.demo`        | Sofía · Lenga Superior Cabin                   |
+| USER          | `user@patagonialakeview.demo`          | Tomás · perfil + 3 reservas demo               |
+
+En `/login`, con `NODE_ENV !== "production"` o `NEXT_PUBLIC_DEMO_MODE=true`,
+aparecen botones de **"Entrar como demo"** que loguean con un click.
+
+### Roles
+
+- **USER**: reserva, chatea con anfitriones, reseña sus estadías
+- **ADMIN**: dueño de cabañas; ve y opera **solo lo suyo** (cabañas + reservas + chats + apelaciones de reseñas de sus cabañas)
+- **SUPER_ADMIN**: ve y opera todo; asigna roles, banea usuarios, activa plan Pro, resuelve apelaciones, elimina reseñas
+
+### Features clave
+
+- **Pago simulado** con Visa/Mastercard/Mercado Pago + datos de facturación (DNI, teléfono, dirección). Nunca se almacena el número completo de tarjeta ni CVV.
+- **Perfil de usuario** (Mis datos): se precarga en el checkout y se ofrece guardarlo después de la primera reserva.
+- **Disponibilidad por unidades**: una publicación puede representar varias cabañas iguales (`Cabin.totalUnits`). No se permite overbooking.
+- **Tipos de cama** por cabaña + filtros por tipo en el catálogo.
+- **Chat por reserva**: usuario ↔ admin dueño de la cabaña (super-admin puede ver todo).
+- **Reseñas**: solo después de una estadía completada. Una por reserva. ADMIN puede apelar; SUPER_ADMIN resuelve y/o elimina.
+- **Ban** de usuarios desde `/admin/users` (cierra sesiones, bloquea reservar/chatear).
+- **Plan Pro** de host: las cabañas de admins Pro aparecen **primero** en el catálogo + badge "Anfitrión Pro".
+
+### Cómo probar cada feature
+
+| Feature | Cómo |
+|---|---|
+| Demo login | `/login` → uno de los 5 botones |
+| Perfil | Login como user → `/dashboard/profile` |
+| Checkout simulado realista | Cabaña → reservar → tab Tarjeta o MP, completar billing |
+| Disponibilidad por unidades | Reservar varias veces la misma fecha en Ciprés (totalUnits=3) hasta que se bloquee |
+| Filtro por camas | `/cabins` → "Filtros" → "Camas" → marcar Queen / King / etc. |
+| Chat | Reserva PENDING o CONFIRMED → click en el título de la cabaña en el dashboard → caja de mensajes |
+| Reviews | Login como user → `/dashboard/reservations` → entrar a una CONFIRMED past o COMPLETED → "Dejá tu reseña" |
+| Apelar reseña | Login como admin dueño de la cabaña → ir a la cabaña → en cada review, botón "Apelar" |
+| Resolver apelación | Login como super-admin → `/admin/appeals` → Aprobar/Rechazar |
+| Ban | super-admin → `/admin/users` → botón "Banear" en un user (te impide banearte a vos mismo) |
+| Pro Host | super-admin → `/admin/users` → toggle "Pro" en un ADMIN → mirá `/cabins`: sus cabañas suben |
 
 ---
 

@@ -37,12 +37,12 @@ export function FinalCTA() {
               Ver cabañas disponibles
             </LinkButton>
             <LinkButton
-              href="/contact"
+              href="/soporte"
               variant="ghost"
               size="md"
               className="text-white hover:bg-white/10"
             >
-              Hablar con un anfitrión
+              Hablar con soporte
             </LinkButton>
           </div>
         </div>

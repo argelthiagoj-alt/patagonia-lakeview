@@ -7,7 +7,15 @@ import { CabinGallery } from "@/components/cabins/CabinGallery";
 import { CabinAmenities } from "@/components/cabins/CabinAmenities";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { CabinCard } from "@/components/cabins/CabinCard";
-import { getCabinBySlug, listCabins } from "@/lib/db/cabins";
+import { getCabinBySlug, listCabins } from "@/modules/cabins/repo";
+import { listReviewsForCabin } from "@/modules/reviews/repo";
+import { getCurrentUser } from "@/modules/auth/session";
+import { ReviewList, type ReviewItem } from "@/components/reviews/ReviewList";
+import { CabinMap } from "@/components/cabins/CabinMap";
+import { HostCard } from "@/components/cabins/HostCard";
+import { FavoriteButton } from "@/components/cabins/FavoriteButton";
+import { ShareButton } from "@/components/cabins/ShareButton";
+import { isFavorited } from "@/modules/favorites/repo";
 
 type Params = { slug: string };
 
@@ -44,11 +52,40 @@ export default async function CabinDetailPage({
   const cabin = await getCabinBySlug(slug);
   if (!cabin) notFound();
 
-  const allCabins = await listCabins();
+  // Paralelizamos las 3 lecturas independientes (catálogo relacionado,
+  // reviews y usuario actual). Antes corrían en serie generando un
+  // waterfall de ~3 round-trips innecesario.
+  const [allCabins, reviewRows, viewer] = await Promise.all([
+    listCabins(),
+    listReviewsForCabin(cabin.id).catch(() => []),
+    getCurrentUser(),
+  ]);
   const related = allCabins.filter((c) => c.id !== cabin.id).slice(0, 3);
+  const reviews: ReviewItem[] = reviewRows.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.createdAt.toISOString(),
+    author: r.user.name ?? r.user.email,
+    hasPendingAppeal: r.appeals.length > 0,
+    canAppeal: Boolean(
+      viewer &&
+        (viewer.role === "ADMIN" || viewer.role === "SUPER_ADMIN") &&
+        (viewer.role === "SUPER_ADMIN" || r.cabin.ownerId === viewer.id)
+    ),
+    canDelete: viewer?.role === "SUPER_ADMIN",
+    breakdown: {
+      cleanliness: r.ratingCleanliness,
+      accuracy: r.ratingAccuracy,
+      checkin: r.ratingCheckin,
+      communication: r.ratingCommunication,
+      location: r.ratingLocation,
+      value: r.ratingValue,
+    },
+  }));
 
   // Pre-fill the booking form with the logged user's profile (if any)
-  const me = await (await import("@/lib/auth")).getCurrentUser();
+  const me = viewer;
   let userDefaults:
     | {
         loggedIn: true;
@@ -64,22 +101,8 @@ export default async function CabinDetailPage({
       }
     | undefined = undefined;
   if (me) {
-    const { prisma } = await import("@/lib/prisma");
-    const u = await prisma.user
-      .findUnique({
-        where: { id: me.id },
-        select: {
-          email: true,
-          name: true,
-          documentId: true,
-          phone: true,
-          address: true,
-          city: true,
-          state: true,
-          country: true,
-        },
-      })
-      .catch(() => null);
+    const { findProfile } = await import("@/modules/users/repo");
+    const u = await findProfile(me.id).catch(() => null);
     if (u) {
       const hasSavedProfile = Boolean(u.documentId && u.phone && u.address);
       userDefaults = {
@@ -116,9 +139,24 @@ export default async function CabinDetailPage({
       </div>
 
       <header className="container-page mb-8 flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {cabin.lakeView && <Badge tone="moss">Vista al lago</Badge>}
-          <Badge tone="stone">{cabin.location.split(",")[0]}</Badge>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {cabin.lakeView && <Badge tone="moss">Vista al lago</Badge>}
+            <Badge tone="stone">{cabin.location.split(",")[0]}</Badge>
+            {cabin.propertyType === "HOTEL" && (
+              <Badge tone="warning">Hotel</Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <ShareButton title={cabin.title} text={cabin.shortDescription} />
+            <FavoriteButton
+              cabinId={cabin.id}
+              initialFavored={
+                viewer ? Boolean(await isFavorited(viewer.id, cabin.id)) : false
+              }
+              loggedIn={Boolean(viewer)}
+            />
+          </div>
         </div>
         <h1 className="heading-display text-balance max-w-3xl">{cabin.title}</h1>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[color:var(--color-text-secondary)]">
@@ -173,6 +211,23 @@ export default async function CabinDetailPage({
             <h2 className="text-2xl font-medium tracking-tight">Lo que incluye</h2>
             <CabinAmenities amenities={cabin.amenities} />
           </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-medium tracking-tight">Ubicación</h2>
+            <CabinMap
+              latitude={cabin.latitude}
+              longitude={cabin.longitude}
+              location={cabin.location}
+              title={cabin.title}
+            />
+          </section>
+
+          {cabin.propertyType !== "HOTEL" && cabin.hostInfo && (
+            <section className="space-y-4">
+              <h2 className="text-2xl font-medium tracking-tight">Tu anfitrión</h2>
+              <HostCard host={cabin.hostInfo} />
+            </section>
+          )}
 
           {cabin.beds.length > 0 && (
             <section className="space-y-4">
@@ -229,6 +284,17 @@ export default async function CabinDetailPage({
           />
         </aside>
       </div>
+
+      <section className="container-page mt-24">
+        <div className="mb-8 max-w-xl space-y-2">
+          <p className="text-eyebrow">Reseñas</p>
+          <h2 className="heading-section">
+            {cabin.rating.toFixed(2)} ★ · {cabin.reviewCount}{" "}
+            {cabin.reviewCount === 1 ? "reseña" : "reseñas"}
+          </h2>
+        </div>
+        <ReviewList reviews={reviews} cabinTitle={cabin.title} />
+      </section>
 
       <section className="container-page mt-32">
         <div className="mb-10 flex items-end justify-between">

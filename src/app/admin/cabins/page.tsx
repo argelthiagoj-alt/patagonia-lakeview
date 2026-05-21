@@ -1,23 +1,16 @@
 import Link from "next/link";
 import { Plus, ImageOff, Users, BedDouble, CalendarCheck, Pencil, ShieldCheck } from "lucide-react";
-import { prisma } from "@/lib/prisma";
 import { LinkButton } from "@/components/ui/Button";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { CabinActiveToggle } from "@/components/admin/CabinActiveToggle";
 import { formatCurrency } from "@/lib/utils";
-import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isSuperAdmin } from "@/shared/auth-roles";
+import { findCabinsForAdmin } from "@/modules/cabins/repo";
 
 async function loadFor(userId: string, viewAll: boolean) {
   try {
-    return await prisma.cabin.findMany({
-      where: viewAll ? undefined : { ownerId: userId },
-      orderBy: { createdAt: "asc" },
-      include: {
-        _count: { select: { reservations: true } },
-        images: { orderBy: { order: "asc" }, take: 1 },
-        owner: { select: { id: true, name: true, email: true } },
-      },
-    });
+    return await findCabinsForAdmin(viewAll ? undefined : userId);
   } catch {
     return [];
   }

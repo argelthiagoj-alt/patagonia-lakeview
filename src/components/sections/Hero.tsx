@@ -4,15 +4,23 @@ import { LinkButton } from "@/components/ui/Button";
 import { SearchBar } from "@/components/booking/SearchBar";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { AtmosphereParticlesLoader } from "@/components/three/AtmosphereParticlesLoader";
-import { siteImages, blurDataURL } from "@/lib/images";
+import { SeasonalAtmosphere } from "@/components/three/SeasonalAtmosphere";
+import { blurDataURL } from "@/lib/images";
+import { getAppDateServer } from "@/modules/demo-tools/date";
+import { currentSeason } from "@/modules/seasonal-theme/helpers";
+import { imagesForSeason } from "@/modules/seasonal-theme/images";
+import { SEASON_CONFIG } from "@/modules/seasonal-theme/config";
 
-export function Hero() {
+export async function Hero() {
+  const season = currentSeason(await getAppDateServer());
+  const images = imagesForSeason(season);
+  const config = SEASON_CONFIG[season];
   return (
     <section className="relative isolate flex min-h-[100svh] flex-col overflow-hidden pt-24 pb-12">
       <div className="absolute inset-0 -z-10 bg-[color:var(--color-background-deep)]">
         <SafeImage
-          src={siteImages.heroPrimary.url}
-          alt={siteImages.heroPrimary.alt}
+          src={images.hero.url}
+          alt={images.hero.alt}
           fill
           priority
           placeholder="blur"
@@ -20,17 +28,23 @@ export function Hero() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-[color:var(--color-background)]" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-[color:var(--color-background)]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/10" />
       </div>
 
-      <AtmosphereParticlesLoader />
+      {/* Verano: partículas Three.js suaves; otoño/invierno/primavera:
+          animaciones CSS livianas con prefers-reduced-motion gate. */}
+      {season === "summer" ? (
+        <AtmosphereParticlesLoader />
+      ) : (
+        <SeasonalAtmosphere season={season} />
+      )}
 
       <div className="container-page flex flex-1 flex-col justify-end gap-10 pt-20">
         <div className="hero-fade-up max-w-3xl space-y-6">
           <Badge tone="dark" className="backdrop-blur">
             <Compass size={12} strokeWidth={1.5} />
-            Patagonia · Temporada 2026
+            Patagonia · {config.label}
           </Badge>
           <h1 className="heading-display text-balance text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.25)]">
             Despertá frente al lago,
@@ -61,7 +75,10 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[color:var(--color-background)]" />
+      {/* Fade inferior breve: lo justo para coser con la siguiente sección
+          sin tapar el SearchBar. Antes era h-32 y velaba los inputs de
+          fecha. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-[color:var(--color-background)]" />
     </section>
   );
 }

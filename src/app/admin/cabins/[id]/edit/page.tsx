@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { CabinForm } from "@/components/admin/CabinForm";
-import { listAmenities } from "@/lib/db/amenities";
-import { canManageCabin, getCurrentUser } from "@/lib/auth";
+import { AvailabilityWidget } from "@/components/admin/AvailabilityWidget";
+import { getCurrentUser } from "@/modules/auth/session";
+import { canManageCabin } from "@/shared/auth-roles";
+import { findCabinForEdit, listAmenities } from "@/modules/cabins/repo";
+import { FEATURE_KEYS, type FeatureKey } from "@/modules/cabins/schemas";
 
 export default async function EditCabinPage({
   params,
@@ -14,14 +16,7 @@ export default async function EditCabinPage({
 
   let cabin;
   try {
-    cabin = await prisma.cabin.findUnique({
-      where: { id },
-      include: {
-        images: { orderBy: { order: "asc" } },
-        amenities: { include: { amenity: true } },
-        beds: true,
-      },
-    });
+    cabin = await findCabinForEdit(id);
   } catch {
     notFound();
   }
@@ -49,6 +44,7 @@ export default async function EditCabinPage({
           location: cabin.location,
           shortDescription: cabin.shortDescription ?? "",
           description: cabin.description,
+          propertyType: cabin.propertyType,
           bedrooms: cabin.bedrooms,
           bathrooms: cabin.bathrooms,
           maxGuests: cabin.maxGuests,
@@ -59,10 +55,36 @@ export default async function EditCabinPage({
           isActive: cabin.isActive,
           highlights: cabin.highlights ?? [],
           amenityKeys: cabin.amenities.map((a) => a.amenity.key),
+          latitude: cabin.latitude ?? null,
+          longitude: cabin.longitude ?? null,
+          cancellationPolicy: cabin.cancellationPolicy,
+          houseRules: cabin.houseRules,
+          checkInTime: cabin.checkInTime,
+          checkOutTime: cabin.checkOutTime,
+          hostDisplayName: cabin.hostDisplayName,
+          hostBio: cabin.hostBio,
+          hostPhoto: cabin.hostPhoto,
+          hostCity: cabin.hostCity,
+          hostingSince: cabin.hostingSince,
+          features: Object.fromEntries(
+            FEATURE_KEYS.map((k) => [k, Boolean((cabin as Record<string, unknown>)[k])])
+          ) as Record<FeatureKey, boolean>,
           images: cabin.images.map((i) => ({ url: i.url, alt: i.alt ?? "" })),
           beds: cabin.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
+          roomTypes: cabin.roomTypes?.map((rt) => ({
+            id: rt.id,
+            name: rt.name,
+            description: rt.description,
+            pricePerNight: rt.pricePerNight,
+            maxGuests: rt.maxGuests,
+            totalUnits: rt.totalUnits,
+            amenities: rt.amenities,
+            beds: rt.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
+          })) ?? [],
         }}
       />
+
+      <AvailabilityWidget cabinId={cabin.id} />
     </div>
   );
 }

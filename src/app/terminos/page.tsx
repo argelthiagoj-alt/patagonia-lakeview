@@ -61,6 +61,27 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="5.b Coordinación dentro de la plataforma">
+        <p>
+          Toda la coordinación entre huéspedes y anfitriones —reservas,
+          cambios de fecha, indicaciones de llegada, dudas y eventuales
+          conflictos— debe realizarse dentro de Patagonia Lakeview, usando el
+          chat asociado a cada reserva.
+        </p>
+        <p>
+          Si un anfitrión intenta cerrar alquileres por fuera de la plataforma
+          (acordando pagos directos, cancelando una reserva para crear otra
+          paralela, o redirigiendo huéspedes a canales externos), sus cabañas
+          pueden ser desactivadas o removidas sin previo aviso. Este punto
+          existe para que las protecciones del usuario (pago simulado, política
+          de cancelación, apelaciones de reseñas) sigan vigentes.
+        </p>
+        <p className="text-xs text-[color:var(--color-text-muted)]">
+          Esta cláusula es orientativa para un proyecto demo y debe revisarse
+          con un profesional legal antes de cualquier uso comercial real.
+        </p>
+      </LegalSection>
+
       <LegalSection title="6. Responsabilidades del alojamiento">
         <p>
           El anfitrión se compromete a entregar la cabaña limpia, en condiciones

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,21 +13,28 @@ import {
   Link as LinkIcon,
   Plus,
   Trash2,
-  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { AmenityIcon } from "@/components/cabins/AmenityIcon";
-import { cabinSchema, type CabinInput } from "@/lib/validations";
-import { slugify, cn } from "@/lib/utils";
 import {
-  ACCEPTED_TYPES,
-  processImageFiles,
-  uploadErrorMessage,
-  type ProcessedImage,
-} from "@/lib/image-upload";
+  cabinSchema,
+  FEATURE_KEYS,
+  FEATURE_LABELS,
+  HOTEL_ONLY_FEATURES,
+  type CabinInput,
+} from "@/modules/cabins/schemas";
+import { slugify, cn } from "@/lib/utils";
 import type { Amenity } from "@/data/cabins";
+import { ImageDropzone } from "@/components/admin/cabin-form/ImageDropzone";
+import { ImageUrlField } from "@/components/admin/cabin-form/ImageUrlField";
+import {
+  IconBtn,
+  NumField,
+  Section,
+  ToggleField,
+} from "@/components/admin/cabin-form/primitives";
 
 type AmenityOption = { key: string; name: string };
 
@@ -37,12 +44,31 @@ type Props = {
   initial?: Partial<CabinInput>;
 };
 
+const emptyFeatures = {
+  hasTv: false,
+  hasWifi: false,
+  hasHeating: false,
+  hasAirConditioning: false,
+  hasPhoneSignal: false,
+  hasRestaurant: false,
+  hasElevator: false,
+  has24hReception: false,
+  hasRoomService: false,
+  hasBreakfast: false,
+  hasSpa: false,
+  hasGym: false,
+  hasPool: false,
+  hasParking: false,
+  hasAccessibility: false,
+};
+
 const emptyValues: CabinInput = {
   title: "",
   slug: "",
   location: "",
   shortDescription: "",
   description: "",
+  propertyType: "CABIN",
   bedrooms: 1,
   bathrooms: 1,
   maxGuests: 2,
@@ -53,8 +79,21 @@ const emptyValues: CabinInput = {
   isActive: true,
   highlights: [],
   amenityKeys: [],
+  latitude: null,
+  longitude: null,
+  cancellationPolicy: null,
+  houseRules: null,
+  checkInTime: null,
+  checkOutTime: null,
+  hostDisplayName: null,
+  hostBio: null,
+  hostPhoto: null,
+  hostCity: null,
+  hostingSince: null,
+  features: emptyFeatures,
   images: [],
   beds: [],
+  roomTypes: [],
 };
 
 export function CabinForm({ id, amenities, initial }: Props) {
@@ -85,6 +124,10 @@ export function CabinForm({ id, amenities, initial }: Props) {
     control,
     name: "highlights" as never,
   });
+  const roomTypes = useFieldArray({ control, name: "roomTypes" });
+
+  const propertyType = watch("propertyType");
+  const isHotel = propertyType === "HOTEL";
 
   const amenityKeys = watch("amenityKeys") ?? [];
   const titleValue = watch("title");
@@ -262,6 +305,261 @@ export function CabinForm({ id, amenities, initial }: Props) {
           contra este total.
         </p>
       </Section>
+
+      {/* ─────────────── Tipo de publicación ─────────────── */}
+      <Section title="Tipo de publicación">
+        <div className="flex flex-wrap gap-2">
+          {(["CABIN", "HOTEL"] as const).map((t) => (
+            <label
+              key={t}
+              className={cn(
+                "cursor-pointer rounded-full border px-4 py-2 text-xs font-medium transition",
+                propertyType === t
+                  ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)]"
+                  : "border-[color:var(--color-border)] bg-white/60 text-[color:var(--color-text-primary)] hover:border-[color:var(--color-primary)]"
+              )}
+            >
+              <input
+                type="radio"
+                value={t}
+                {...register("propertyType")}
+                className="sr-only"
+              />
+              {t === "CABIN" ? "Cabaña" : "Hotel"}
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-[color:var(--color-text-muted)]">
+          {isHotel
+            ? "Hotel: definí tipos de habitación con su capacidad, precio e inventario."
+            : "Cabaña: una sola unidad reservable (o varias unidades iguales)."}
+        </p>
+      </Section>
+
+      {/* ─────────────── Geolocalización ─────────────── */}
+      <Section title="Ubicación (mapa)">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Latitud" htmlFor="cf-lat">
+            <Input
+              id="cf-lat"
+              type="number"
+              step="0.0001"
+              placeholder="-40.7308"
+              {...register("latitude", { setValueAs: emptyToNull })}
+            />
+          </Field>
+          <Field label="Longitud" htmlFor="cf-lng">
+            <Input
+              id="cf-lng"
+              type="number"
+              step="0.0001"
+              placeholder="-71.6383"
+              {...register("longitude", { setValueAs: emptyToNull })}
+            />
+          </Field>
+        </div>
+        <p className="text-xs text-[color:var(--color-text-muted)]">
+          Opcional. Si no cargás coordenadas, el detalle muestra un link
+          genérico a OpenStreetMap con la ubicación textual.
+        </p>
+      </Section>
+
+      {/* ─────────────── Reglas / horarios / política ─────────────── */}
+      <Section title="Reglas y horarios">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Check-in" htmlFor="cf-cin" hint="Ej: 15:00">
+            <Input id="cf-cin" placeholder="15:00" {...register("checkInTime", { setValueAs: emptyToNull })} />
+          </Field>
+          <Field label="Check-out" htmlFor="cf-cout" hint="Ej: 11:00">
+            <Input id="cf-cout" placeholder="11:00" {...register("checkOutTime", { setValueAs: emptyToNull })} />
+          </Field>
+          <Field
+            label="Reglas de la casa"
+            htmlFor="cf-rules"
+            className="sm:col-span-2"
+          >
+            <textarea
+              id="cf-rules"
+              rows={3}
+              placeholder="No fumar. Mascotas previa consulta. Música baja después de las 22 h."
+              className="flex w-full rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+              {...register("houseRules", { setValueAs: emptyToNull })}
+            />
+          </Field>
+          <Field
+            label="Política de cancelación"
+            htmlFor="cf-cancel"
+            className="sm:col-span-2"
+          >
+            <textarea
+              id="cf-cancel"
+              rows={3}
+              placeholder="Cancelación gratuita hasta 7 días antes del check-in."
+              className="flex w-full rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+              {...register("cancellationPolicy", { setValueAs: emptyToNull })}
+            />
+          </Field>
+        </div>
+      </Section>
+
+      {/* ─────────────── Anfitrión (solo CABIN se mostrará en la ficha) ─────────────── */}
+      {!isHotel && (
+        <Section title="Anfitrión">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Nombre del anfitrión" htmlFor="cf-host-name">
+              <Input
+                id="cf-host-name"
+                placeholder="Lucía Aguilar"
+                {...register("hostDisplayName", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Ciudad" htmlFor="cf-host-city">
+              <Input
+                id="cf-host-city"
+                placeholder="Villa La Angostura"
+                {...register("hostCity", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Foto (URL)"
+              htmlFor="cf-host-photo"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-host-photo"
+                placeholder="https://..."
+                {...register("hostPhoto", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Bio breve"
+              htmlFor="cf-host-bio"
+              className="sm:col-span-2"
+            >
+              <textarea
+                id="cf-host-bio"
+                rows={3}
+                className="flex w-full rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+                placeholder="Vivo a 200 m del lago. Recibo huéspedes desde 2020."
+                {...register("hostBio", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Anfitrión desde" htmlFor="cf-host-since">
+              <Input
+                id="cf-host-since"
+                type="date"
+                {...register("hostingSince", { setValueAs: emptyDateToNull })}
+              />
+            </Field>
+          </div>
+        </Section>
+      )}
+
+      {/* ─────────────── Features ─────────────── */}
+      <Section title="Features de la publicación">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURE_KEYS.filter(
+            (k) => isHotel || !HOTEL_ONLY_FEATURES.includes(k)
+          ).map((k) => (
+            <label
+              key={k}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-[color:var(--color-border)] bg-white/60 px-3 py-2 text-sm transition hover:border-[color:var(--color-primary)]"
+            >
+              <input
+                type="checkbox"
+                {...register(`features.${k}` as const)}
+                className="h-4 w-4 accent-[color:var(--color-primary)]"
+              />
+              <span>{FEATURE_LABELS[k]}</span>
+            </label>
+          ))}
+        </div>
+      </Section>
+
+      {/* ─────────────── Hotel: tipos de habitación ─────────────── */}
+      {isHotel && (
+        <Section title="Tipos de habitación">
+          <p className="text-xs text-[color:var(--color-text-muted)]">
+            Cada tipo de habitación tiene su propio inventario, precio y
+            capacidad. La disponibilidad pública se calcula por tipo.
+          </p>
+          <div className="space-y-4">
+            {roomTypes.fields.map((f, idx) => (
+              <div
+                key={f.id}
+                className="space-y-3 rounded-2xl border border-[color:var(--color-border)] bg-white/50 p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <Field
+                    label="Nombre"
+                    htmlFor={`rt-name-${idx}`}
+                    className="flex-1"
+                  >
+                    <Input
+                      id={`rt-name-${idx}`}
+                      placeholder="Suite Lago"
+                      {...register(`roomTypes.${idx}.name`)}
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    onClick={() => roomTypes.remove(idx)}
+                    className="mt-7 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--color-border)] text-[color:var(--color-error)] hover:bg-[color:var(--color-error)]/8"
+                    aria-label="Eliminar tipo de habitación"
+                  >
+                    <Trash2 size={14} strokeWidth={1.5} />
+                  </button>
+                </div>
+                <Field label="Descripción" htmlFor={`rt-desc-${idx}`}>
+                  <Input
+                    id={`rt-desc-${idx}`}
+                    placeholder="Cama king, vista al lago, baño privado."
+                    {...register(`roomTypes.${idx}.description`, {
+                      setValueAs: emptyToNull,
+                    })}
+                  />
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <NumField
+                    label="Precio/noche (USD)"
+                    id={`rt-price-${idx}`}
+                    register={register(`roomTypes.${idx}.pricePerNight`)}
+                  />
+                  <NumField
+                    label="Máx. huéspedes"
+                    id={`rt-guests-${idx}`}
+                    register={register(`roomTypes.${idx}.maxGuests`)}
+                  />
+                  <NumField
+                    label="Cantidad disponible"
+                    id={`rt-units-${idx}`}
+                    register={register(`roomTypes.${idx}.totalUnits`)}
+                  />
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                roomTypes.append({
+                  name: "",
+                  description: null,
+                  pricePerNight: 100,
+                  maxGuests: 2,
+                  totalUnits: 1,
+                  amenities: [],
+                  beds: [],
+                })
+              }
+            >
+              <Plus size={14} strokeWidth={1.5} />
+              Agregar tipo de habitación
+            </Button>
+          </div>
+        </Section>
+      )}
 
       {/* ─────────────── Images ─────────────── */}
       <Section
@@ -555,281 +853,13 @@ export function CabinForm({ id, amenities, initial }: Props) {
   );
 }
 
-/* ────────────────── Helpers ────────────────── */
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="surface-paper space-y-5 p-6 md:p-8">
-      <header className="space-y-1.5">
-        <h2 className="text-lg font-medium tracking-tight">{title}</h2>
-        {description && (
-          <p className="text-sm text-[color:var(--color-text-secondary)]">
-            {description}
-          </p>
-        )}
-      </header>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
+function emptyToNull(v: unknown) {
+  if (v === '' || v === undefined) return null;
+  return v;
 }
 
-function NumField({
-  label,
-  id,
-  register,
-  error,
-}: {
-  label: string;
-  id: string;
-  register: ReturnType<ReturnType<typeof useForm<CabinInput>>["register"]>;
-  error?: string;
-}) {
-  return (
-    <Field label={label} htmlFor={id} error={error}>
-      <Input id={id} type="number" min={0} {...register} />
-    </Field>
-  );
+function emptyDateToNull(v: unknown) {
+  if (v === '' || v === undefined || v === null) return null;
+  return v;
 }
 
-function ToggleField({
-  label,
-  description,
-  control,
-  name,
-}: {
-  label: string;
-  description?: string;
-  control: ReturnType<typeof useForm<CabinInput>>["control"];
-  name: "lakeView" | "isActive";
-}) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <label className="flex items-start gap-3">
-          <span
-            role="switch"
-            aria-checked={field.value}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === " " || e.key === "Enter") {
-                e.preventDefault();
-                field.onChange(!field.value);
-              }
-            }}
-            onClick={() => field.onChange(!field.value)}
-            className={cn(
-              "relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border transition",
-              field.value
-                ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]"
-                : "border-[color:var(--color-border)] bg-white"
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
-                field.value ? "translate-x-5" : "translate-x-1"
-              )}
-            />
-          </span>
-          <span className="flex flex-col gap-0.5 text-sm">
-            <span className="font-medium text-[color:var(--color-text-primary)]">
-              {label}
-            </span>
-            {description && (
-              <span className="text-xs text-[color:var(--color-text-secondary)]">
-                {description}
-              </span>
-            )}
-          </span>
-        </label>
-      )}
-    />
-  );
-}
-
-function IconBtn({
-  children,
-  onClick,
-  disabled,
-  danger,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-30",
-        danger
-          ? "border-[color:var(--color-border)] text-[color:var(--color-error)] hover:border-[color:var(--color-error)] hover:bg-[color:var(--color-error)]/8"
-          : "border-[color:var(--color-border)] text-[color:var(--color-text-secondary)] hover:border-[color:var(--color-text-primary)] hover:text-[color:var(--color-text-primary)]"
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ImageDropzone({
-  onFiles,
-}: {
-  onFiles: (images: ProcessedImage[]) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [issues, setIssues] = useState<string[]>([]);
-
-  async function handleFiles(files: FileList | File[] | null) {
-    if (!files || (files as FileList).length === 0) return;
-    setIssues([]);
-    setProcessing(true);
-    try {
-      const { images, errors } = await processImageFiles(files);
-      if (images.length > 0) onFiles(images);
-      if (errors.length > 0) {
-        setIssues(
-          Array.from(new Set(errors.map((e) => uploadErrorMessage(e))))
-        );
-      }
-    } finally {
-      setProcessing(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!dragging) setDragging(true);
-        }}
-        onDragLeave={(e) => {
-          // only flip off when leaving the actual element, not its children
-          if (e.currentTarget === e.target) setDragging(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          handleFiles(e.dataTransfer.files);
-        }}
-        className={cn(
-          "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors cursor-pointer",
-          dragging
-            ? "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/5"
-            : "border-[color:var(--color-border)] bg-white/40 hover:border-[color:var(--color-text-primary)] hover:bg-white/60"
-        )}
-      >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-secondary)]">
-          {processing ? (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-          ) : (
-            <Upload size={20} strokeWidth={1.5} />
-          )}
-        </span>
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-[color:var(--color-text-primary)]">
-            {processing
-              ? "Procesando imágenes…"
-              : dragging
-              ? "Soltá las imágenes acá"
-              : "Arrastrá imágenes o hacé click para elegir"}
-          </p>
-          <p className="text-xs text-[color:var(--color-text-secondary)]">
-            JPG, PNG, WebP o AVIF · hasta 8 MB · se redimensionan a 1600px
-          </p>
-        </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED_TYPES.join(",")}
-          multiple
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
-      </div>
-
-      {issues.length > 0 && (
-        <ul className="space-y-1 text-xs text-[color:var(--color-error)]">
-          {issues.map((m, i) => (
-            <li key={i} className="flex items-start gap-1.5">
-              <AlertCircle size={12} className="mt-0.5" />
-              {m}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/**
- * URL input that auto-collapses when the value is a data: URL
- * (i.e. an image uploaded from disk) so the textarea-of-base64 doesn't
- * clutter the form. Falls back to a regular text input for remote URLs.
- */
-function ImageUrlField({
-  control,
-  index,
-}: {
-  control: ReturnType<typeof useForm<CabinInput>>["control"];
-  index: number;
-}) {
-  return (
-    <Controller
-      control={control}
-      name={`images.${index}.url`}
-      render={({ field }) => {
-        const isData = field.value?.startsWith("data:");
-        if (isData) {
-          const sizeKb = Math.round((field.value.length * 0.75) / 1024);
-          return (
-            <div className="flex h-11 items-center justify-between gap-2 rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-3 text-sm">
-              <span className="inline-flex items-center gap-1.5 text-[color:var(--color-text-secondary)]">
-                <Upload size={12} strokeWidth={1.75} />
-                Subida desde el dispositivo · ~{sizeKb} KB
-              </span>
-              <button
-                type="button"
-                onClick={() => field.onChange("")}
-                className="text-[11px] font-medium uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-error)]"
-              >
-                Quitar
-              </button>
-            </div>
-          );
-        }
-        return (
-          <Input
-            placeholder="https://…/foto.jpg"
-            value={field.value ?? ""}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-          />
-        );
-      }}
-    />
-  );
-}

@@ -1,30 +1,16 @@
-import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/Badge";
 import {
   AdminReservationRow,
   type AdminReservationRowData,
 } from "@/components/admin/AdminReservationRow";
 import { formatCurrency } from "@/lib/utils";
-import { getCurrentUser, isSuperAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isSuperAdmin } from "@/shared/auth-roles";
+import { findReservationsForAdmin } from "@/modules/reservations/repo";
 
 async function load(userId: string, viewAll: boolean): Promise<AdminReservationRowData[]> {
-  const where = viewAll ? undefined : { cabin: { ownerId: userId } };
   try {
-    const rows = await prisma.reservation.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        cabin: { select: { title: true } },
-        payment: {
-          select: {
-            provider: true,
-            status: true,
-            cardBrand: true,
-            last4: true,
-          },
-        },
-      },
-    });
+    const rows = await findReservationsForAdmin(viewAll ? undefined : userId);
     return rows.map((r) => ({
       id: r.id,
       cabinTitle: r.cabin.title,

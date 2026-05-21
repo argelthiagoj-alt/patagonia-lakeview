@@ -9,7 +9,7 @@ import { Input, Field } from "@/components/ui/Input";
 import {
   jobApplicationSchema,
   type JobApplicationInput,
-} from "@/lib/validations";
+} from "@/modules/jobs/schemas";
 
 const ROLES: { value: JobApplicationInput["role"]; label: string }[] = [
   { value: "anfitrion", label: "Anfitrión / host" },

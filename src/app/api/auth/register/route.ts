@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
-import { registerSchema } from "@/lib/validations";
-import { createSession, hashPassword } from "@/lib/auth";
-import {
-  generateNumericCode,
-  hashCode,
-  EMAIL_VERIFICATION_TTL_MS,
-} from "@/lib/codes";
-import { sendEmailVerificationCode } from "@/lib/email";
+import { isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
+import { registerSchema } from "@/modules/auth/schemas";
+import { register } from "@/modules/auth/service";
+import { createSession } from "@/modules/auth/session";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -15,7 +10,7 @@ export async function POST(req: Request) {
   const rl = checkRateLimit({
     key: `register:${ip}`,
     max: 5,
-    windowMs: 60 * 60_000, // 5 / hour / IP
+    windowMs: 60 * 60_000,
   });
   if (!rl.allowed) {
     return NextResponse.json(
@@ -52,40 +47,24 @@ export async function POST(req: Request) {
   const { name, email, password } = parsed.data;
 
   try {
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const result = await register(name, email, password);
+    if (!result.ok) {
       return NextResponse.json(
         { error: "Ya existe una cuenta con ese email." },
         { status: 409 }
       );
     }
 
-    const user = await prisma.user.create({
-      data: { name, email, passwordHash: await hashPassword(password) },
-    });
-
-    // Fire-and-forget email verification code. We don't block registration if it fails.
-    try {
-      const code = generateNumericCode(6);
-      const codeHash = await hashCode(code);
-      await prisma.emailVerificationCode.create({
-        data: {
-          userId: user.id,
-          codeHash,
-          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
-        },
-      });
-      void sendEmailVerificationCode(user.email, code);
-    } catch (err) {
-      console.warn("[register] failed to send verification email", err);
-    }
-
-    await createSession(user.id);
+    await createSession(result.user.id);
 
     return NextResponse.json(
       {
-        user: { id: user.id, email: user.email, name: user.name },
-        verifyEmail: true,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        },
+        verifyEmail: result.verificationSent,
       },
       { status: 201 }
     );

@@ -9,7 +9,7 @@ const links = {
     { href: "/about", label: "Experiencia" },
   ],
   Empresa: [
-    { href: "/contact", label: "Contacto" },
+    { href: "/soporte", label: "Soporte" },
     { href: "/trabaja-con-nosotros", label: "Trabajá con nosotros" },
     { href: "/about", label: "Sobre nosotros" },
     { href: "/login", label: "Iniciar sesión" },

@@ -93,10 +93,10 @@ export default function CancellationPage() {
           </a>{" "}
           o desde la página de{" "}
           <a
-            href="/contact"
+            href="/soporte"
             className="text-[color:var(--color-accent-hover)] underline-offset-4 hover:underline"
           >
-            contacto
+            soporte
           </a>
           .
         </p>

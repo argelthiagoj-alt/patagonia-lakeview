@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isAdmin } from "@/shared/auth-roles";
 
 export const metadata: Metadata = { title: "Crear cuenta" };
 

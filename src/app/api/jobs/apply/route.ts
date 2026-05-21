@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { jobApplicationSchema } from "@/lib/validations";
-import { sendJobApplicationEmail } from "@/lib/email";
+import { jobApplicationSchema } from "@/modules/jobs/schemas";
+import { sendJobApplicationEmail } from "@/modules/email/senders";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {

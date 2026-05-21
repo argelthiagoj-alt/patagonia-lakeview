@@ -5,13 +5,8 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, Users, AlertCircle, Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
-import {
-  SimulatedPaymentForm,
-  type CheckoutDefaults,
-} from "@/components/booking/SimulatedPaymentForm";
 import { computeBookingPrice } from "@/lib/booking";
 import { formatCurrency, toDateInputValue } from "@/lib/utils";
-import type { PaymentInput } from "@/lib/validations";
 import type { Cabin } from "@/data/cabins";
 
 export type BookingUserDefaults = {
@@ -35,7 +30,7 @@ type Props = {
   userDefaults?: BookingUserDefaults;
 };
 
-type Step = "details" | "payment" | "success";
+type Step = "details" | "success";
 type FormError = Partial<
   Record<"checkIn" | "checkOut" | "guests" | "guestName" | "guestEmail" | "_", string>
 >;
@@ -49,6 +44,15 @@ function defaultDates() {
   return { ci: toDateInputValue(ci), co: toDateInputValue(co) };
 }
 
+/**
+ * BookingForm — solicita la reserva (sin pago).
+ *
+ * Nuevo flujo:
+ *   1. El huésped completa fechas + datos de contacto.
+ *   2. POST /api/reservations crea una solicitud en estado PENDING.
+ *   3. El anfitrión la aprueba (APPROVED).
+ *   4. El huésped paga desde /dashboard/reservations/[id] (POST /api/reservations/[id]/pay).
+ */
 export function BookingForm({
   cabin,
   initialCheckIn,
@@ -65,9 +69,6 @@ export function BookingForm({
   const [guests, setGuests] = useState(initialGuests ?? Math.min(2, cabin.maxGuests));
   const [guestName, setGuestName] = useState(userDefaults?.name ?? "");
   const [guestEmail, setGuestEmail] = useState(userDefaults?.email ?? "");
-  const [askSaveProfile, setAskSaveProfile] = useState(false);
-  const [savedProfile, setSavedProfile] = useState(false);
-  const [lastPayment, setLastPayment] = useState<PaymentInput | null>(null);
 
   const [errors, setErrors] = useState<FormError>({});
   const [demoMode, setDemoMode] = useState(false);
@@ -92,7 +93,7 @@ export function BookingForm({
     [validRange, cabin.pricePerNight, cabin.cleaningFee, ci, co]
   );
 
-  function continueToPayment(e: React.FormEvent) {
+  function submitRequest(e: React.FormEvent) {
     e.preventDefault();
     const next: FormError = {};
     if (!guestName.trim() || guestName.trim().length < 2) {
@@ -112,14 +113,8 @@ export function BookingForm({
     if (ci < today) next.checkIn = "El check-in no puede ser en el pasado";
 
     setErrors(next);
-    if (Object.keys(next).length === 0) {
-      setServerError(null);
-      setDemoMode(false);
-      setStep("payment");
-    }
-  }
+    if (Object.keys(next).length > 0) return;
 
-  function submitWithPayment(payment: PaymentInput) {
     setServerError(null);
     setDemoMode(false);
 
@@ -135,7 +130,6 @@ export function BookingForm({
             guests,
             guestName,
             guestEmail,
-            payment,
           }),
         });
 
@@ -143,7 +137,6 @@ export function BookingForm({
           const data = await res.json().catch(() => ({}));
           if (res.status === 409) {
             setServerError("Esas fechas ya no están disponibles. Probá otras.");
-            setStep("details");
             return;
           }
           if (data?.demoMode) {
@@ -151,48 +144,19 @@ export function BookingForm({
             return;
           }
           setServerError(
-            data?.error ?? "No pudimos procesar el pago. Probá nuevamente."
+            data?.error ?? "No pudimos crear la solicitud. Probá nuevamente."
           );
           return;
         }
 
         const data = (await res.json()) as { reservation: { id: string } };
         setSuccessId(data.reservation.id);
-        setLastPayment(payment);
-        // After first booking with custom data, offer to save to profile
-        if (userDefaults?.loggedIn && !userDefaults.hasSavedProfile) {
-          setAskSaveProfile(true);
-        }
         setStep("success");
         router.refresh();
       } catch {
         setServerError("Sin conexión. Verificá tu red e intentá de nuevo.");
       }
     });
-  }
-
-  async function saveBillingToProfile() {
-    if (!lastPayment) return;
-    setSavedProfile(true);
-    try {
-      await fetch("/api/me", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: guestName,
-          phone: lastPayment.phone,
-          documentId: lastPayment.documentId,
-          address: lastPayment.billingAddress,
-          city: lastPayment.city,
-          state: lastPayment.state,
-          country: lastPayment.country,
-          billingName:
-            lastPayment.provider === "CARD" ? lastPayment.cardholder : guestName,
-        }),
-      });
-    } finally {
-      setAskSaveProfile(false);
-    }
   }
 
   /* ───────────── Render ───────────── */
@@ -206,84 +170,25 @@ export function BookingForm({
         <div className="space-y-1.5">
           <h3 className="text-lg font-medium">Solicitud enviada</h3>
           <p className="text-sm text-[color:var(--color-text-secondary)]">
-            Pago simulado autorizado. El anfitrión va a aceptar o rechazar tu
-            reserva en las próximas horas. Si la rechaza, el pago se devuelve
-            (simulado).
+            Tu solicitud está en revisión por el anfitrión. Cuando la apruebe
+            te avisamos por email y vas a poder pagarla desde tu dashboard.
+            El pago es simulado: no se cobra nada todavía.
           </p>
         </div>
-
-        {askSaveProfile && (
-          <div className="space-y-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)]/60 p-4">
-            <p className="text-sm text-[color:var(--color-text-primary)]">
-              ¿Querés guardar estos datos para futuras reservas? La próxima vez
-              te precargamos el checkout.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={saveBillingToProfile}
-              >
-                Guardar para futuras reservas
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setAskSaveProfile(false)}
-              >
-                Ahora no
-              </Button>
-            </div>
-          </div>
-        )}
-        {savedProfile && !askSaveProfile && (
-          <p className="text-xs text-[color:var(--color-success)]">
-            Datos guardados en tu perfil.
-          </p>
-        )}
-
         <Button
           type="button"
           variant="primary"
           size="md"
           onClick={() => router.push("/dashboard/reservations")}
         >
-          Ver mis reservas
+          Ver mis solicitudes
         </Button>
       </div>
     );
   }
 
-  if (step === "payment" && price && validRange) {
-    return (
-      <SimulatedPaymentForm
-        amount={price.total}
-        defaults={{
-          email: guestEmail,
-          name: guestName,
-          documentId: userDefaults?.documentId,
-          phone: userDefaults?.phone,
-          address: userDefaults?.address,
-          city: userDefaults?.city,
-          state: userDefaults?.state,
-          country: userDefaults?.country,
-        }}
-        pending={pending}
-        serverError={
-          demoMode
-            ? "Modo demo: configurá DATABASE_URL para guardar reservas reales."
-            : serverError
-        }
-        onBack={() => setStep("details")}
-        onSubmit={submitWithPayment}
-      />
-    );
-  }
-
   return (
-    <form onSubmit={continueToPayment} className="surface-paper space-y-5 p-6">
+    <form onSubmit={submitRequest} className="surface-paper space-y-5 p-6">
       <div className="flex items-baseline justify-between">
         <div>
           <span className="text-2xl font-medium text-[color:var(--color-text-primary)]">
@@ -374,7 +279,7 @@ export function BookingForm({
           <Row label="Servicio" value={formatCurrency(price.serviceFee)} />
           <div className="mt-3 flex items-center justify-between border-t border-[color:var(--color-border)] pt-3">
             <span className="font-medium text-[color:var(--color-text-primary)]">
-              Total
+              Total estimado
             </span>
             <span className="text-lg font-medium text-[color:var(--color-text-primary)]">
               {formatCurrency(price.total)}
@@ -383,10 +288,14 @@ export function BookingForm({
         </div>
       )}
 
-      {serverError && (
+      {(serverError || demoMode) && (
         <div className="flex items-start gap-2 rounded-xl border border-[color:var(--color-error)]/20 bg-[color:var(--color-error)]/8 p-3 text-sm text-[color:var(--color-error)]">
           <AlertCircle size={16} strokeWidth={1.5} className="mt-0.5" />
-          <span>{serverError}</span>
+          <span>
+            {demoMode
+              ? "Modo demo: configurá DATABASE_URL para guardar reservas reales."
+              : serverError}
+          </span>
         </div>
       )}
 
@@ -397,12 +306,13 @@ export function BookingForm({
         className="w-full"
         disabled={pending}
       >
-        Continuar al pago
+        {pending ? "Enviando solicitud…" : "Solicitar reserva"}
         <ArrowRight size={16} strokeWidth={1.75} />
       </Button>
 
       <p className="text-center text-xs text-[color:var(--color-text-muted)]">
-        Pago simulado · No se procesa dinero real.
+        Sin pago todavía · El anfitrión aprueba y después se paga
+        (simulado).
       </p>
     </form>
   );

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { cabinSchema } from "@/lib/validations";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/modules/auth/session";
+import { cabinSchema } from "@/modules/cabins/schemas";
+import { createCabin } from "@/modules/cabins/service";
 
+/**
+ * POST /api/admin/cabins — admin creates a new cabin.
+ * Ownership is taken from the session, never from the payload.
+ */
 export async function POST(req: Request) {
   let user;
   try {
@@ -26,72 +30,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const data = parsed.data;
-
-  try {
-    const amenities = data.amenityKeys.length
-      ? await prisma.amenity.findMany({
-          where: { key: { in: data.amenityKeys } },
-          select: { id: true },
-        })
-      : [];
-
-    // Deduplicate beds by type, summing quantities
-    const bedByType = new Map<string, number>();
-    for (const b of data.beds) {
-      bedByType.set(b.type, (bedByType.get(b.type) ?? 0) + b.quantity);
+  const result = await createCabin(user.id, parsed.data);
+  if (!result.ok) {
+    if (result.reason === "SLUG_TAKEN") {
+      return NextResponse.json(
+        { error: "Ya existe una cabaña con ese slug." },
+        { status: 409 }
+      );
     }
-
-    const cabin = await prisma.cabin.create({
-      data: {
-        slug: data.slug,
-        title: data.title,
-        description: data.description,
-        shortDescription: data.shortDescription,
-        location: data.location,
-        lakeView: data.lakeView,
-        maxGuests: data.maxGuests,
-        bedrooms: data.bedrooms,
-        bathrooms: data.bathrooms,
-        pricePerNight: data.pricePerNight,
-        cleaningFee: data.cleaningFee,
-        totalUnits: data.totalUnits,
-        isActive: data.isActive,
-        highlights: data.highlights,
-        // Ownership: NEVER trust the client. Always set ownerId from the session.
-        ownerId: user.id,
-        images: {
-          create: data.images.map((img, order) => ({
-            url: img.url,
-            alt: img.alt ?? null,
-            order,
-          })),
-        },
-        amenities: {
-          create: amenities.map((a) => ({ amenityId: a.id })),
-        },
-        beds: {
-          create: Array.from(bedByType.entries()).map(([type, quantity]) => ({
-            type: type as
-              | "TWIN"
-              | "DOUBLE"
-              | "QUEEN"
-              | "KING"
-              | "SOFA_BED"
-              | "BUNK",
-            quantity,
-          })),
-        },
-      },
-    });
-
-    return NextResponse.json({ cabin }, { status: 201 });
-  } catch (err) {
-    const message =
-      (err as { code?: string }).code === "P2002"
-        ? "Ya existe una cabaña con ese slug."
-        : "No pudimos crear la cabaña.";
-    console.error("[POST /api/admin/cabins]", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "No pudimos crear la cabaña." },
+      { status: 500 }
+    );
   }
+
+  return NextResponse.json({ cabin: result.cabin }, { status: 201 });
 }

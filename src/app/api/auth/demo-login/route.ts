@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createSession } from "@/lib/auth";
+import { findUserByEmail } from "@/modules/users/repo";
+import { createSession } from "@/modules/auth/session";
 
 // Whitelist of seeded demo accounts. Hard-coded so production data can't be touched.
 const DEMO_EMAILS = new Set([
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
     if (!user) {
       return NextResponse.json(
         { error: "La cuenta demo no existe. Corré `npm run db:seed`." },

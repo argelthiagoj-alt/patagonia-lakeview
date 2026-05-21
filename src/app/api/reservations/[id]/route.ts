@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/modules/auth/session";
+import { reservationActionSchema } from "@/modules/reservations/schemas";
+import { findReservationCore } from "@/modules/reservations/repo";
 import {
-  getCurrentUser,
-  isAdmin as isAdminUser,
-  isSuperAdmin,
-} from "@/lib/auth";
-import { reservationActionSchema } from "@/lib/validations";
+  approveReservation,
+  cancelReservation,
+  confirmReservation,
+  rejectReservation,
+} from "@/modules/reservations/service";
 import {
-  sendReservationConfirmedEmail,
-  sendReservationRejectedEmail,
-} from "@/lib/email";
+  canCancelReservation,
+  canDecideReservation,
+} from "@/modules/reservations/policies";
 
-type Action = "confirm" | "reject" | "cancel";
-
+/**
+ * PATCH /api/reservations/:id — drive a state transition.
+ *
+ * Authorization is delegated to `@/modules/reservations/policies`.
+ * Side-effects (Payment status, emails) live in the service.
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -32,121 +38,56 @@ export async function PATCH(
 
   const parsed = reservationActionSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Acción inválida" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
   }
-  const action = parsed.data.action as Action;
+  const action = parsed.data.action;
 
-  try {
-    const reservation = await prisma.reservation.findUnique({
-      where: { id },
-      include: {
-        payment: true,
-        cabin: { select: { ownerId: true, title: true } },
-      },
-    });
-    if (!reservation) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Load just enough context to authorize
+  const reservation = await findReservationCore(id);
+  if (!reservation) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const ctx = {
+    userId: reservation.userId,
+    cabinOwnerId: reservation.cabin.ownerId,
+  };
+
+  if (action === "cancel") {
+    if (!canCancelReservation(user, ctx)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  } else if (!canDecideReservation(user, ctx)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-    const isOwner = reservation.userId === user.id;
-    const isAdmin = isAdminUser(user);
-    const ownsCabin =
-      isSuperAdmin(user) || reservation.cabin.ownerId === user.id;
+  const result =
+    action === "approve"
+      ? await approveReservation(id)
+      : action === "confirm"
+      ? await confirmReservation(id)
+      : action === "reject"
+      ? await rejectReservation(id)
+      : await cancelReservation(id);
 
-    // Authorization per action
-    if (action === "cancel") {
-      // Owner of the reservation OR an admin who owns the cabin
-      if (!isOwner && !(isAdmin && ownsCabin)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } else {
-      // confirm / reject are admin-only AND require ownership of the cabin
-      if (!isAdmin || !ownsCabin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
-
-    // Don't act on already-final reservations
-    const finalStates = ["CANCELLED", "REJECTED", "COMPLETED"];
-    if (finalStates.includes(reservation.status)) {
+  if (!result.ok) {
+    if (result.reason === "ALREADY_FINAL") {
       return NextResponse.json(
         { error: "La reserva ya está en un estado final." },
         { status: 409 }
       );
     }
-
-    if (action === "confirm") {
-      const updated = await prisma.$transaction(async (tx) => {
-        const r = await tx.reservation.update({
-          where: { id },
-          data: { status: "CONFIRMED" },
-        });
-        if (reservation.payment) {
-          await tx.payment.update({
-            where: { id: reservation.payment.id },
-            data: { status: "SIMULATED_CAPTURED" },
-          });
-        }
-        return r;
-      });
-
-      void sendReservationConfirmedEmail({
-        to: reservation.guestEmail,
-        guestName: reservation.guestName,
-        cabinTitle: reservation.cabin.title,
-        checkIn: reservation.checkIn,
-        checkOut: reservation.checkOut,
-        total: reservation.totalPrice,
-      }).catch(() => undefined);
-
-      return NextResponse.json({ reservation: updated });
+    if (result.reason === "INVALID_TRANSITION") {
+      return NextResponse.json(
+        { error: "Transición no permitida desde el estado actual." },
+        { status: 409 }
+      );
     }
-
-    if (action === "reject") {
-      const updated = await prisma.$transaction(async (tx) => {
-        const r = await tx.reservation.update({
-          where: { id },
-          data: { status: "REJECTED" },
-        });
-        if (reservation.payment) {
-          await tx.payment.update({
-            where: { id: reservation.payment.id },
-            data: { status: "SIMULATED_REFUNDED" },
-          });
-        }
-        return r;
-      });
-
-      void sendReservationRejectedEmail({
-        to: reservation.guestEmail,
-        guestName: reservation.guestName,
-        cabinTitle: reservation.cabin.title,
-        total: reservation.totalPrice,
-      }).catch(() => undefined);
-
-      return NextResponse.json({ reservation: updated });
+    if (result.reason === "NOT_FOUND") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-
-    // action === "cancel"
-    const updated = await prisma.$transaction(async (tx) => {
-      const r = await tx.reservation.update({
-        where: { id },
-        data: { status: "CANCELLED" },
-      });
-      if (reservation.payment && reservation.payment.status !== "SIMULATED_CAPTURED") {
-        await tx.payment.update({
-          where: { id: reservation.payment.id },
-          data: { status: "SIMULATED_REFUNDED" },
-        });
-      }
-      return r;
-    });
-    return NextResponse.json({ reservation: updated });
-  } catch (err) {
-    console.error("[PATCH /api/reservations/:id]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+
+  return NextResponse.json({ reservation: result.reservation });
 }

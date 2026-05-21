@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CabinCatalog } from "@/components/cabins/CabinFilters";
-import { listCabinsWithReservations } from "@/lib/db/cabins";
+import { listCabinsWithReservations } from "@/modules/cabins/repo";
 
 export const metadata: Metadata = {
   title: "Catálogo de cabañas",

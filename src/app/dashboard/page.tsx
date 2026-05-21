@@ -1,28 +1,14 @@
 import Link from "next/link";
 import { CalendarCheck, Sparkles, Mountain } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { findUpcomingForGuest } from "@/modules/reservations/repo";
 import { LinkButton } from "@/components/ui/Button";
 import { ReservationCard, type ReservationCardData } from "@/components/booking/ReservationCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 async function loadUpcoming(userId: string): Promise<ReservationCardData[]> {
   try {
-    const rows = await prisma.reservation.findMany({
-      where: {
-        userId,
-        status: { in: ["PENDING", "CONFIRMED"] },
-        checkOut: { gte: new Date() },
-      },
-      include: {
-        cabin: { select: { slug: true, title: true, location: true } },
-        payment: {
-          select: { provider: true, status: true, cardBrand: true, last4: true },
-        },
-      },
-      orderBy: { checkIn: "asc" },
-      take: 3,
-    });
+    const rows = await findUpcomingForGuest(userId, 3);
     return rows.map((r) => ({
       id: r.id,
       status: r.status,
@@ -39,6 +25,7 @@ async function loadUpcoming(userId: string): Promise<ReservationCardData[]> {
             last4: r.payment.last4,
           }
         : null,
+      unreadMessages: r.conversation?._count.messages ?? 0,
     }));
   } catch {
     return [];

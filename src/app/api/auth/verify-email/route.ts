@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma, isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
-import { verifyEmailSchema } from "@/lib/validations";
+import { isDbConfigured, DEMO_MODE_MESSAGE } from "@/lib/prisma";
+import { verifyEmailSchema } from "@/modules/auth/schemas";
 import {
-  generateNumericCode,
-  hashCode,
-  verifyCode,
-  EMAIL_VERIFICATION_TTL_MS,
-} from "@/lib/codes";
-import { sendEmailVerificationCode } from "@/lib/email";
-import { getCurrentUser } from "@/lib/auth";
+  confirmEmail,
+  issueEmailVerificationCode,
+} from "@/modules/auth/service";
+import { getCurrentUser } from "@/modules/auth/session";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
-/** GET → request a fresh code (for the currently logged-in user). */
+/** GET → issue a fresh code to the currently logged-in user. */
 export async function GET(req: Request) {
   const ip = clientIp(req);
   const rl = checkRateLimit({
@@ -37,27 +34,19 @@ export async function GET(req: Request) {
   if (!me) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
-  if (me.emailVerified) {
-    return NextResponse.json({ message: "Tu email ya está verificado." });
-  }
 
   try {
-    const code = generateNumericCode(6);
-    const codeHash = await hashCode(code);
-    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
-
-    await prisma.emailVerificationCode.updateMany({
-      where: { userId: me.id, usedAt: null },
-      data: { usedAt: new Date() },
-    });
-    await prisma.emailVerificationCode.create({
-      data: { userId: me.id, codeHash, expiresAt },
-    });
-
-    await sendEmailVerificationCode(me.email, code);
-
+    const result = await issueEmailVerificationCode(me.id);
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado." },
+        { status: 404 }
+      );
+    }
     return NextResponse.json({
-      message: "Te enviamos un código a tu email.",
+      message: result.alreadyVerified
+        ? "Tu email ya está verificado."
+        : "Te enviamos un código a tu email.",
     });
   } catch (err) {
     console.error("[GET /api/auth/verify-email]", err);
@@ -68,7 +57,7 @@ export async function GET(req: Request) {
   }
 }
 
-/** POST → submit the code. */
+/** POST → consume a code. */
 export async function POST(req: Request) {
   const ip = clientIp(req);
   const rl = checkRateLimit({
@@ -92,10 +81,7 @@ export async function POST(req: Request) {
 
   const parsed = verifyEmailSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Datos inválidos" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
   if (!isDbConfigured()) {
@@ -105,55 +91,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const { email, code } = parsed.data;
-
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
+    const result = await confirmEmail(parsed.data.email, parsed.data.code);
+    if (!result.ok) {
       return NextResponse.json(
         { error: "Código inválido o vencido." },
         { status: 400 }
       );
     }
-    if (user.emailVerified) {
-      return NextResponse.json({ message: "Email ya verificado." });
-    }
-
-    const candidate = await prisma.emailVerificationCode.findFirst({
-      where: {
-        userId: user.id,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
+    return NextResponse.json({
+      message: result.alreadyVerified ? "Email ya verificado." : "Email verificado.",
     });
-    if (!candidate) {
-      return NextResponse.json(
-        { error: "Código inválido o vencido." },
-        { status: 400 }
-      );
-    }
-
-    const matches = await verifyCode(code, candidate.codeHash);
-    if (!matches) {
-      return NextResponse.json(
-        { error: "Código inválido o vencido." },
-        { status: 400 }
-      );
-    }
-
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: new Date() },
-      }),
-      prisma.emailVerificationCode.update({
-        where: { id: candidate.id },
-        data: { usedAt: new Date() },
-      }),
-    ]);
-
-    return NextResponse.json({ message: "Email verificado." });
   } catch (err) {
     console.error("[POST /api/auth/verify-email]", err);
     return NextResponse.json(

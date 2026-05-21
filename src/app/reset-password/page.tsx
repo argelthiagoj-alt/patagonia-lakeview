@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isAdmin } from "@/shared/auth-roles";
 
 export const metadata: Metadata = { title: "Restablecer contraseña" };
 export const dynamic = "force-dynamic";

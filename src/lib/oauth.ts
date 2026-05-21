@@ -21,9 +21,34 @@ export function googleConfigured(): boolean {
   );
 }
 
+/**
+ * Resuelve la base URL de la app para construir el redirect_uri.
+ *
+ * Prioridad:
+ *   1. NEXT_PUBLIC_APP_URL  (lo que vos seteás explícitamente, ej. el
+ *      dominio custom en Vercel o http://localhost:3000 en .env).
+ *   2. VERCEL_URL           (Vercel lo inyecta automáticamente en cada
+ *      preview/production deploy — útil si te olvidaste de configurar
+ *      NEXT_PUBLIC_APP_URL en Vercel).
+ *   3. http://localhost:3000 como último fallback (sólo dev).
+ *
+ * NOTA IMPORTANTE: la redirect_uri que se manda a Google **tiene que
+ * coincidir EXACTAMENTE** con una de las "Authorized redirect URIs"
+ * cargadas en la Google Cloud Console (incluyendo http vs https, con o
+ * sin trailing slash, etc.). Si no coincide → `redirect_uri_mismatch`.
+ *
+ * El path es `/api/auth/google/callback` (NO `/api/auth/callback/google`,
+ * que es la convención de NextAuth — esta app usa auth custom).
+ */
 export function googleRedirectUri(): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
-  return `${base}/api/auth/google/callback`;
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (explicit) return `${explicit}/api/auth/google/callback`;
+
+  // Vercel inyecta VERCEL_URL sin protocolo (ej. "patagonia-lakeview.vercel.app").
+  const vercel = process.env.VERCEL_URL?.replace(/\/$/, "");
+  if (vercel) return `https://${vercel}/api/auth/google/callback`;
+
+  return "http://localhost:3000/api/auth/google/callback";
 }
 
 export function randomState(): string {

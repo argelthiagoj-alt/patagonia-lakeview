@@ -45,7 +45,8 @@ export function SearchBar({ variant = "hero", className }: SearchBarProps) {
       onSubmit={onSubmit}
       className={[
         variant === "hero"
-          ? "surface-paper grid w-full grid-cols-1 gap-2 p-2 md:grid-cols-[1fr_1fr_1fr_auto]"
+          ? // Solid warm paper + stronger ring/shadow so it sits cleanly above the gradient seam.
+            "grid w-full grid-cols-1 gap-2 rounded-[2rem] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 shadow-[var(--shadow-lift)] md:grid-cols-[1fr_1fr_1fr_auto]"
           : "surface-glass grid w-full grid-cols-1 gap-2 rounded-3xl p-2 md:grid-cols-[1fr_1fr_1fr_auto]",
         className,
       ]
@@ -112,11 +113,11 @@ function FieldChunk({
 }) {
   return (
     <label className="group flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors hover:bg-[color:var(--color-surface-muted)]/60">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-secondary)]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--color-primary)]/12 text-[color:var(--color-primary)]">
         {icon}
       </span>
       <span className="flex flex-1 flex-col">
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)]">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--color-text-primary)]">
           {label}
         </span>
         {children}

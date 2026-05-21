@@ -20,7 +20,8 @@
       "Bash(DATABASE_URL=\"postgresql://x:y@unreachable:5432/none\" DIRECT_URL=\"postgresql://x:y@unreachable:5432/none\" npx prisma validate)",
       "Bash(npx prisma *)",
       "PowerShell(try { Resolve-DnsName -Name \"db.kvrgvvnkmgqpgzmxhvie.supabase.co\" -ErrorAction Stop | Format-List Name, Type, IPAddress } catch { \"DNS error: $\\($_.Exception.Message\\)\" })",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(xargs wc -l)"
     ]
   }
 }

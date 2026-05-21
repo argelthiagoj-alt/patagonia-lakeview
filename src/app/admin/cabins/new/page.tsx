@@ -1,5 +1,5 @@
 import { CabinForm } from "@/components/admin/CabinForm";
-import { listAmenities } from "@/lib/db/amenities";
+import { listAmenities } from "@/modules/cabins/repo";
 
 export default async function NewCabinPage() {
   const amenities = await listAmenities();
