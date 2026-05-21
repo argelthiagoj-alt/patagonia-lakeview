@@ -108,6 +108,19 @@ export async function createCabin(
       hostPhoto: data.hostPhoto ?? null,
       hostCity: data.hostCity ?? null,
       hostingSince: data.hostingSince ?? null,
+      hostPhone: data.hostPhone ?? null,
+      hostEmail: data.hostEmail || null,
+      hostLink: data.hostLink ?? null,
+      hotelLegalName: data.hotelLegalName ?? null,
+      hotelLogo: data.hotelLogo ?? null,
+      hotelDescription: data.hotelDescription ?? null,
+      hotelAddress: data.hotelAddress ?? null,
+      hotelCity: data.hotelCity ?? null,
+      hotelPhone: data.hotelPhone ?? null,
+      hotelEmail: data.hotelEmail || null,
+      hotelWebsite: data.hotelWebsite ?? null,
+      hotelReceptionHours: data.hotelReceptionHours ?? null,
+      hotelGeneralPolicies: data.hotelGeneralPolicies ?? null,
       ...featuresToColumns(data.features),
       // Ownership is set from the route's session, NEVER trusted from input.
       owner: { connect: { id: ownerId } },
@@ -212,6 +225,35 @@ export async function updateCabin(
           ...(data.hostCity !== undefined && { hostCity: data.hostCity }),
           ...(data.hostingSince !== undefined && {
             hostingSince: data.hostingSince,
+          }),
+          ...(data.hostPhone !== undefined && { hostPhone: data.hostPhone }),
+          ...(data.hostEmail !== undefined && {
+            hostEmail: data.hostEmail || null,
+          }),
+          ...(data.hostLink !== undefined && { hostLink: data.hostLink }),
+          ...(data.hotelLegalName !== undefined && {
+            hotelLegalName: data.hotelLegalName,
+          }),
+          ...(data.hotelLogo !== undefined && { hotelLogo: data.hotelLogo }),
+          ...(data.hotelDescription !== undefined && {
+            hotelDescription: data.hotelDescription,
+          }),
+          ...(data.hotelAddress !== undefined && {
+            hotelAddress: data.hotelAddress,
+          }),
+          ...(data.hotelCity !== undefined && { hotelCity: data.hotelCity }),
+          ...(data.hotelPhone !== undefined && { hotelPhone: data.hotelPhone }),
+          ...(data.hotelEmail !== undefined && {
+            hotelEmail: data.hotelEmail || null,
+          }),
+          ...(data.hotelWebsite !== undefined && {
+            hotelWebsite: data.hotelWebsite,
+          }),
+          ...(data.hotelReceptionHours !== undefined && {
+            hotelReceptionHours: data.hotelReceptionHours,
+          }),
+          ...(data.hotelGeneralPolicies !== undefined && {
+            hotelGeneralPolicies: data.hotelGeneralPolicies,
           }),
           ...featuresToColumns(data.features),
         },

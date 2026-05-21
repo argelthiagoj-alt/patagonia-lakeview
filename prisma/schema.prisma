@@ -85,8 +85,10 @@ model User {
   banReason  String?
   bannedById String?
 
-  // Admin plan (only meaningful for ADMIN)
+  // Admin plan (only meaningful for ADMIN). Pago real NO se procesa —
+  // la suscripción Pro es simulada (ver /admin/pro-membership).
   adminPlan AdminPlan @default(FREE)
+  proSince  DateTime?
   proUntil  DateTime?
 
   reservations           Reservation[]
@@ -192,13 +194,31 @@ model Cabin {
   checkInTime        String? // ej. "15:00"
   checkOutTime       String? // ej. "11:00"
 
-  // Datos del anfitrión visibles en la ficha (cabañas). Para hoteles se
-  // muestra info institucional (description + location alcanzan).
+  // Datos del anfitrión visibles en la ficha (cabañas).
   hostDisplayName String?
   hostBio         String?
   hostPhoto       String?
   hostCity        String?
   hostingSince    DateTime?
+  // Opcionales adicionales (no sensibles por default; el admin decide
+  // mostrarlos al cargar valor).
+  hostPhone       String?
+  hostEmail       String?
+  hostLink        String?
+
+  // Datos institucionales del hotel (sólo para propertyType = HOTEL).
+  // Se muestran como tarjeta institucional en vez de la tarjeta de
+  // anfitrión personal. Null cuando la publicación es CABIN.
+  hotelLegalName       String?
+  hotelLogo            String?
+  hotelDescription     String?
+  hotelAddress         String?
+  hotelCity            String?
+  hotelPhone           String?
+  hotelEmail           String?
+  hotelWebsite         String?
+  hotelReceptionHours  String?
+  hotelGeneralPolicies String?
 
   // Features booleanas para filtros rápidos. Algunas aplican a cabañas
   // (TV, wifi, calefacción, AC, cobertura telefónica); el resto son
@@ -450,4 +470,29 @@ model Message {
 
   @@index([conversationId])
   @@index([senderId])
+}
+
+/// Configuración editable del hero/landing por el SUPER_ADMIN.
+/// Singleton: usamos siempre el row con id = "default". Si no existe,
+/// la landing cae a las constantes hardcodeadas.
+model LandingConfig {
+  id                String   @id @default("default")
+  heroTitle         String?
+  heroSubtitle      String?
+  heroCtaLabel      String?
+  heroCtaHref       String?
+  /// Por temporada: override de hero image url. JSON con shape
+  /// { summer?: string; autumn?: string; winter?: string; spring?: string }.
+  /// Si una clave falta, se usa la imagen default del módulo seasonal-theme.
+  seasonalHeroes    Json?
+  /// Texto destacado opcional bajo el subtitle.
+  highlightText     String?
+  /// Animación ambiental.
+  atmosphereEnabled Boolean  @default(true)
+  /// LOW | MEDIUM | HIGH — se interpreta en el cliente.
+  atmosphereIntensity String @default("MEDIUM")
+  /// URL de imagen fallback cuando la del hero falla.
+  fallbackImage     String?
+  updatedAt         DateTime @updatedAt
+  updatedById       String?
 }

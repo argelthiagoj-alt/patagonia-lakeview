@@ -41,6 +41,21 @@ export type CabinView = MockCabin & {
     photo: string | null;
     city: string | null;
     hostingSince: Date | null;
+    phone: string | null;
+    email: string | null;
+    link: string | null;
+  } | null;
+  hotelInfo?: {
+    legalName: string | null;
+    logo: string | null;
+    description: string | null;
+    address: string | null;
+    city: string | null;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    receptionHours: string | null;
+    generalPolicies: string | null;
   } | null;
 };
 
@@ -94,6 +109,19 @@ type Row = {
   hostPhoto?: string | null;
   hostCity?: string | null;
   hostingSince?: Date | null;
+  hostPhone?: string | null;
+  hostEmail?: string | null;
+  hostLink?: string | null;
+  hotelLegalName?: string | null;
+  hotelLogo?: string | null;
+  hotelDescription?: string | null;
+  hotelAddress?: string | null;
+  hotelCity?: string | null;
+  hotelPhone?: string | null;
+  hotelEmail?: string | null;
+  hotelWebsite?: string | null;
+  hotelReceptionHours?: string | null;
+  hotelGeneralPolicies?: string | null;
 } & Partial<Record<string, unknown>>;
 
 function mapCabin(row: Row): CabinView {
@@ -142,13 +170,44 @@ function mapCabin(row: Row): CabinView {
     longitude: row.longitude ?? null,
     features: extractFeatures(row),
     hostInfo:
-      row.hostDisplayName || row.hostBio || row.hostPhoto || row.hostCity
+      row.hostDisplayName ||
+      row.hostBio ||
+      row.hostPhoto ||
+      row.hostCity ||
+      row.hostPhone ||
+      row.hostEmail ||
+      row.hostLink
         ? {
             name: row.hostDisplayName ?? null,
             bio: row.hostBio ?? null,
             photo: row.hostPhoto ?? null,
             city: row.hostCity ?? null,
             hostingSince: row.hostingSince ?? null,
+            phone: row.hostPhone ?? null,
+            email: row.hostEmail ?? null,
+            link: row.hostLink ?? null,
+          }
+        : null,
+    hotelInfo:
+      row.hotelLegalName ||
+      row.hotelDescription ||
+      row.hotelAddress ||
+      row.hotelPhone ||
+      row.hotelEmail ||
+      row.hotelWebsite ||
+      row.hotelReceptionHours ||
+      row.hotelGeneralPolicies
+        ? {
+            legalName: row.hotelLegalName ?? null,
+            logo: row.hotelLogo ?? null,
+            description: row.hotelDescription ?? null,
+            address: row.hotelAddress ?? null,
+            city: row.hotelCity ?? null,
+            phone: row.hotelPhone ?? null,
+            email: row.hotelEmail ?? null,
+            website: row.hotelWebsite ?? null,
+            receptionHours: row.hotelReceptionHours ?? null,
+            generalPolicies: row.hotelGeneralPolicies ?? null,
           }
         : null,
   };

@@ -90,6 +90,19 @@ const emptyValues: CabinInput = {
   hostPhoto: null,
   hostCity: null,
   hostingSince: null,
+  hostPhone: null,
+  hostEmail: null,
+  hostLink: null,
+  hotelLegalName: null,
+  hotelLogo: null,
+  hotelDescription: null,
+  hotelAddress: null,
+  hotelCity: null,
+  hotelPhone: null,
+  hotelEmail: null,
+  hotelWebsite: null,
+  hotelReceptionHours: null,
+  hotelGeneralPolicies: null,
   features: emptyFeatures,
   images: [],
   beds: [],
@@ -449,6 +462,139 @@ export function CabinForm({ id, amenities, initial }: Props) {
                 id="cf-host-since"
                 type="date"
                 {...register("hostingSince", { setValueAs: emptyDateToNull })}
+              />
+            </Field>
+            <Field label="Teléfono (opcional)" htmlFor="cf-host-phone">
+              <Input
+                id="cf-host-phone"
+                placeholder="+54 9 294 …"
+                {...register("hostPhone", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Email de contacto (opcional)" htmlFor="cf-host-email">
+              <Input
+                id="cf-host-email"
+                type="email"
+                placeholder="hola@anfitrion.com"
+                {...register("hostEmail", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Link / red social (opcional)"
+              htmlFor="cf-host-link"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-host-link"
+                placeholder="https://instagram.com/…"
+                {...register("hostLink", { setValueAs: emptyToNull })}
+              />
+            </Field>
+          </div>
+        </Section>
+      )}
+
+      {/* ─────────────── Datos del hotel (sólo HOTEL) ─────────────── */}
+      {isHotel && (
+        <Section title="Datos del hotel">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Nombre legal / comercial" htmlFor="cf-hotel-name">
+              <Input
+                id="cf-hotel-name"
+                placeholder="Cordillera Resort & Spa S.A."
+                {...register("hotelLegalName", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Ciudad" htmlFor="cf-hotel-city">
+              <Input
+                id="cf-hotel-city"
+                placeholder="San Carlos de Bariloche"
+                {...register("hotelCity", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Logo (URL)"
+              htmlFor="cf-hotel-logo"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-hotel-logo"
+                placeholder="https://..."
+                {...register("hotelLogo", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Descripción breve"
+              htmlFor="cf-hotel-desc"
+              className="sm:col-span-2"
+            >
+              <textarea
+                id="cf-hotel-desc"
+                rows={3}
+                className="flex w-full rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+                placeholder="Hotel boutique frente al lago Nahuel Huapi…"
+                {...register("hotelDescription", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Dirección"
+              htmlFor="cf-hotel-address"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-hotel-address"
+                placeholder="Av. Bustillo km 4.5"
+                {...register("hotelAddress", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Teléfono" htmlFor="cf-hotel-phone">
+              <Input
+                id="cf-hotel-phone"
+                placeholder="+54 294 4XX XXXX"
+                {...register("hotelPhone", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field label="Email de contacto" htmlFor="cf-hotel-email">
+              <Input
+                id="cf-hotel-email"
+                type="email"
+                placeholder="reservas@hotel.com"
+                {...register("hotelEmail", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Web oficial (opcional)"
+              htmlFor="cf-hotel-website"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-hotel-website"
+                placeholder="https://www.hotel.com"
+                {...register("hotelWebsite", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Horario de recepción"
+              htmlFor="cf-hotel-reception"
+              className="sm:col-span-2"
+            >
+              <Input
+                id="cf-hotel-reception"
+                placeholder="Recepción 24h · Check-in desde 15:00"
+                {...register("hotelReceptionHours", { setValueAs: emptyToNull })}
+              />
+            </Field>
+            <Field
+              label="Políticas generales"
+              htmlFor="cf-hotel-policies"
+              className="sm:col-span-2"
+            >
+              <textarea
+                id="cf-hotel-policies"
+                rows={4}
+                className="flex w-full rounded-xl border border-[color:var(--color-border)] bg-white/60 px-4 py-3 text-sm focus:border-[color:var(--color-primary)] focus:bg-white focus:outline-none"
+                placeholder="Cancelaciones, mascotas, niños, política de fumadores…"
+                {...register("hotelGeneralPolicies", { setValueAs: emptyToNull })}
               />
             </Field>
           </div>

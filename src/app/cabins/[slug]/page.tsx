@@ -13,6 +13,7 @@ import { getCurrentUser } from "@/modules/auth/session";
 import { ReviewList, type ReviewItem } from "@/components/reviews/ReviewList";
 import { CabinMap } from "@/components/cabins/CabinMap";
 import { HostCard } from "@/components/cabins/HostCard";
+import { HotelCard } from "@/components/cabins/HotelCard";
 import { FavoriteButton } from "@/components/cabins/FavoriteButton";
 import { ShareButton } from "@/components/cabins/ShareButton";
 import { isFavorited } from "@/modules/favorites/repo";
@@ -226,6 +227,13 @@ export default async function CabinDetailPage({
             <section className="space-y-4">
               <h2 className="text-2xl font-medium tracking-tight">Tu anfitrión</h2>
               <HostCard host={cabin.hostInfo} />
+            </section>
+          )}
+
+          {cabin.propertyType === "HOTEL" && cabin.hotelInfo && (
+            <section className="space-y-4">
+              <h2 className="text-2xl font-medium tracking-tight">Sobre el hotel</h2>
+              <HotelCard hotel={cabin.hotelInfo} />
             </section>
           )}
 

@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { Instagram, Facebook, Mail } from "lucide-react";
+import { Instagram, Facebook, Mail, Crown } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
+import { getCurrentUser } from "@/modules/auth/session";
+import { isAdmin } from "@/shared/auth-roles";
 
 const links = {
   Explorar: [
@@ -21,7 +23,13 @@ const links = {
   ],
 };
 
-export function Footer() {
+export async function Footer() {
+  // "Ganar visibilidad" sólo es relevante para anfitriones (ADMIN logueado).
+  // Lo escondemos del huésped común y del super-admin (que no necesita
+  // mejorar su propia visibilidad).
+  const me = await getCurrentUser();
+  const showProUpsell = !!me && isAdmin(me) && me.role !== "SUPER_ADMIN";
+
   return (
     <footer className="surface-dark relative mt-32 overflow-hidden">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
@@ -85,6 +93,15 @@ export function Footer() {
           </div>
 
           <div className="space-y-3">
+            {showProUpsell && (
+              <Link
+                href="/admin/pro-membership"
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-[color:var(--color-accent)]/50 bg-[color:var(--color-accent)]/15 px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-[color:var(--color-accent-soft)] transition hover:border-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/25"
+              >
+                <Crown size={12} strokeWidth={1.75} />
+                Ganar visibilidad
+              </Link>
+            )}
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/50">
               Recibí novedades
             </p>

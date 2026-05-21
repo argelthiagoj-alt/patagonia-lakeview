@@ -198,11 +198,29 @@ export function setAdminPlan(args: {
   userId: string;
   plan: "FREE" | "PRO";
   proUntil: Date | null;
+  proSince?: Date | null;
 }) {
   return prisma.user.update({
     where: { id: args.userId },
-    data: { adminPlan: args.plan, proUntil: args.proUntil },
-    select: { id: true, adminPlan: true, proUntil: true },
+    data: {
+      adminPlan: args.plan,
+      proUntil: args.proUntil,
+      ...(args.proSince !== undefined ? { proSince: args.proSince } : {}),
+    },
+    select: {
+      id: true,
+      adminPlan: true,
+      proSince: true,
+      proUntil: true,
+    },
+  });
+}
+
+/** Lectura del estado Pro de un admin. */
+export function getProStatus(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { adminPlan: true, proSince: true, proUntil: true },
   });
 }
 

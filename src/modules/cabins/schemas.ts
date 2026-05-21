@@ -145,6 +145,21 @@ export const cabinSchema = z.object({
   hostPhoto: z.string().max(500).optional().nullable(),
   hostCity: z.string().max(120).optional().nullable(),
   hostingSince: z.coerce.date().optional().nullable(),
+  hostPhone: z.string().max(60).optional().nullable(),
+  hostEmail: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
+  hostLink: z.string().max(300).optional().nullable(),
+
+  // datos institucionales del hotel (sólo se muestra/usa en HOTEL)
+  hotelLegalName: z.string().max(160).optional().nullable(),
+  hotelLogo: z.string().max(500).optional().nullable(),
+  hotelDescription: z.string().max(2000).optional().nullable(),
+  hotelAddress: z.string().max(240).optional().nullable(),
+  hotelCity: z.string().max(120).optional().nullable(),
+  hotelPhone: z.string().max(60).optional().nullable(),
+  hotelEmail: z.string().email("Email inválido").optional().nullable().or(z.literal("")),
+  hotelWebsite: z.string().max(300).optional().nullable(),
+  hotelReceptionHours: z.string().max(160).optional().nullable(),
+  hotelGeneralPolicies: z.string().max(2000).optional().nullable(),
 
   // features booleanas (default false todas)
   features: featuresSchema.default({} as FeaturesInput),

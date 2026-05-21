@@ -21,7 +21,9 @@
       "Bash(npx prisma *)",
       "PowerShell(try { Resolve-DnsName -Name \"db.kvrgvvnkmgqpgzmxhvie.supabase.co\" -ErrorAction Stop | Format-List Name, Type, IPAddress } catch { \"DNS error: $\\($_.Exception.Message\\)\" })",
       "Bash(npm run *)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Read(//c/Users/argel/AppData/Local/Temp/claude/C--Users-argel-patagonia-lakeview/0df4fa39-324c-4ea7-8310-f578eea7b4ca/tasks/**)",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 npm run build)"
     ]
   }
 }

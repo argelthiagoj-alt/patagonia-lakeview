@@ -10,17 +10,48 @@ import { getAppDateServer } from "@/modules/demo-tools/date";
 import { currentSeason } from "@/modules/seasonal-theme/helpers";
 import { imagesForSeason } from "@/modules/seasonal-theme/images";
 import { SEASON_CONFIG } from "@/modules/seasonal-theme/config";
+import { getLandingConfig } from "@/modules/admin/landing-config";
 
+/**
+ * Hero principal de la landing.
+ *
+ * Resolución de contenido (con fallback elegante a cada nivel):
+ *   1. `LandingConfig` (DB)        — si SUPER_ADMIN editó algo.
+ *   2. `SEASON_*` + `imagesForSeason()` — defaults por temporada.
+ *   3. Texto hardcodeado            — última red de seguridad.
+ *
+ * Si DB está caída o el modelo no fue pusheado todavía,
+ * `getLandingConfig()` devuelve null y la landing sigue igual.
+ */
 export async function Hero() {
-  const season = currentSeason(await getAppDateServer());
-  const images = imagesForSeason(season);
-  const config = SEASON_CONFIG[season];
+  const [appDate, landing] = await Promise.all([
+    getAppDateServer(),
+    getLandingConfig(),
+  ]);
+  const season = currentSeason(appDate);
+  const seasonImages = imagesForSeason(season);
+  const seasonConfig = SEASON_CONFIG[season];
+
+  // Overrides editables
+  const heroTitle = landing?.heroTitle ?? null;
+  const heroSubtitle = landing?.heroSubtitle ?? null;
+  const ctaLabel = landing?.heroCtaLabel ?? "Ver cabañas";
+  const ctaHref = landing?.heroCtaHref ?? "/cabins";
+  const highlight = landing?.highlightText ?? null;
+  const customSeasonImage = landing?.seasonalHeroes?.[season];
+  const heroUrl =
+    customSeasonImage ?? landing?.fallbackImage ?? seasonImages.hero.url;
+  const heroAlt = customSeasonImage
+    ? `Hero ${seasonConfig.label}`
+    : seasonImages.hero.alt;
+  const atmosphereOn = landing?.atmosphereEnabled ?? true;
+
   return (
     <section className="relative isolate flex min-h-[100svh] flex-col overflow-hidden pt-24 pb-12">
       <div className="absolute inset-0 -z-10 bg-[color:var(--color-background-deep)]">
         <SafeImage
-          src={images.hero.url}
-          alt={images.hero.alt}
+          src={heroUrl}
+          alt={heroAlt}
           fill
           priority
           placeholder="blur"
@@ -32,32 +63,37 @@ export async function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/10" />
       </div>
 
-      {/* Verano: partículas Three.js suaves; otoño/invierno/primavera:
-          animaciones CSS livianas con prefers-reduced-motion gate. */}
-      {season === "summer" ? (
-        <AtmosphereParticlesLoader />
-      ) : (
-        <SeasonalAtmosphere season={season} />
-      )}
+      {atmosphereOn &&
+        (season === "summer" ? (
+          <AtmosphereParticlesLoader />
+        ) : (
+          <SeasonalAtmosphere season={season} />
+        ))}
 
       <div className="container-page flex flex-1 flex-col justify-end gap-10 pt-20">
         <div className="hero-fade-up max-w-3xl space-y-6">
           <Badge tone="dark" className="backdrop-blur">
             <Compass size={12} strokeWidth={1.5} />
-            Patagonia · {config.label}
+            {highlight ?? `Patagonia · ${seasonConfig.label}`}
           </Badge>
           <h1 className="heading-display text-balance text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.25)]">
-            Despertá frente al lago,
-            <br />
-            rodeado de bosque nativo.
+            {heroTitle ? (
+              heroTitle
+            ) : (
+              <>
+                Despertá frente al lago,
+                <br />
+                rodeado de bosque nativo.
+              </>
+            )}
           </h1>
           <p className="max-w-xl text-base/relaxed text-white/85 md:text-lg/relaxed">
-            Cabañas boutique diseñadas para descansar, explorar y reconectar.
-            Naturaleza patagónica con comodidad premium.
+            {heroSubtitle ??
+              "Cabañas boutique diseñadas para descansar, explorar y reconectar. Naturaleza patagónica con comodidad premium."}
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <LinkButton href="/cabins" variant="accent" size="lg">
-              Ver cabañas
+            <LinkButton href={ctaHref} variant="accent" size="lg">
+              {ctaLabel}
             </LinkButton>
             <LinkButton
               href="/about"
@@ -75,9 +111,6 @@ export async function Hero() {
         </div>
       </div>
 
-      {/* Fade inferior breve: lo justo para coser con la siguiente sección
-          sin tapar el SearchBar. Antes era h-32 y velaba los inputs de
-          fecha. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-[color:var(--color-background)]" />
     </section>
   );
