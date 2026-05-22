@@ -91,6 +91,32 @@ model User {
   proSince  DateTime?
   proUntil  DateTime?
 
+  // Perfil de anfitrión a nivel cuenta. Las cabañas del owner heredan
+  // estos datos cuando no tienen overrides propios (ver mapCabin).
+  hostDisplayName String?
+  hostBio         String?
+  hostPhoto       String?
+  hostCity        String?
+  hostingSince    DateTime?
+  hostPhone       String?
+  hostEmail       String?
+  hostLink        String?
+  hostInstagram   String?
+
+  // Datos institucionales del hotel a nivel cuenta. Las publicaciones
+  // HOTEL del owner los heredan cuando no tienen overrides.
+  hotelLegalName       String?
+  hotelLogo            String?
+  hotelDescription     String?
+  hotelAddress         String?
+  hotelCity            String?
+  hotelPhone           String?
+  hotelEmail           String?
+  hotelWebsite         String?
+  hotelInstagram       String?
+  hotelReceptionHours  String?
+  hotelGeneralPolicies String?
+
   reservations           Reservation[]
   reviews                Review[]
   sessions               Session[]
@@ -311,12 +337,26 @@ model RoomType {
   /// sobre las columnas booleanas del Cabin padre.
   amenities    String[] @default([])
   beds         RoomBed[]
+  images       RoomImage[]
   reservations Reservation[]
   cabin        Cabin   @relation(fields: [cabinId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([cabinId])
+}
+
+/// Imágenes propias de un tipo de habitación. Si no hay ninguna, la
+/// vista pública cae a las imágenes generales del Cabin/Hotel padre.
+model RoomImage {
+  id         String   @id @default(cuid())
+  roomTypeId String
+  url        String
+  alt        String?
+  order      Int      @default(0)
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+
+  @@index([roomTypeId])
 }
 
 model RoomBed {

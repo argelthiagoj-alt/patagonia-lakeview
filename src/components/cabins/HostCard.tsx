@@ -1,5 +1,10 @@
-import { MapPin, Calendar, Phone, Mail, ExternalLink } from "lucide-react";
+import { MapPin, Calendar, Mail, ExternalLink, MessageCircle, Instagram } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import {
+  toWhatsAppHref,
+  toInstagramHref,
+  instagramHandle,
+} from "@/shared/contact-links";
 
 type Host = {
   name: string | null;
@@ -10,6 +15,7 @@ type Host = {
   phone?: string | null;
   email?: string | null;
   link?: string | null;
+  instagram?: string | null;
 };
 
 /**
@@ -20,7 +26,10 @@ type Host = {
  * los cargó voluntariamente — defaultean a null.
  */
 export function HostCard({ host }: { host: Host }) {
-  if (!host || (!host.name && !host.bio && !host.photo)) return null;
+  // Siempre renderiza algo: si no hay nada cargado, mostramos al menos
+  // el nombre con avatar inicial — un huésped nunca debería ver una
+  // ficha sin "quién es el anfitrión".
+  if (!host) return null;
 
   const years = host.hostingSince
     ? Math.max(
@@ -74,48 +83,80 @@ export function HostCard({ host }: { host: Host }) {
             {host.bio}
           </p>
         )}
-        {(host.phone || host.email || host.link) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-[color:var(--color-text-secondary)]">
-            {host.phone && (
-              <span className="inline-flex items-center gap-1.5">
-                <Phone size={12} strokeWidth={1.5} />
-                <a
-                  href={`tel:${host.phone}`}
-                  className="hover:text-[color:var(--color-text-primary)]"
-                >
-                  {host.phone}
-                </a>
-              </span>
-            )}
-            {host.email && (
-              <span className="inline-flex items-center gap-1.5">
-                <Mail size={12} strokeWidth={1.5} />
-                <a
-                  href={`mailto:${host.email}`}
-                  className="hover:text-[color:var(--color-text-primary)]"
-                >
-                  {host.email}
-                </a>
-              </span>
-            )}
-            {host.link && (
-              <a
-                href={
-                  /^https?:\/\//i.test(host.link)
-                    ? host.link
-                    : `https://${host.link}`
-                }
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-1.5 hover:text-[color:var(--color-text-primary)]"
-              >
-                <ExternalLink size={12} strokeWidth={1.5} />
-                Más info
-              </a>
-            )}
-          </div>
-        )}
+        <ContactButtons
+          phone={host.phone}
+          email={host.email}
+          instagram={host.instagram}
+          link={host.link}
+        />
       </div>
     </article>
   );
 }
+
+/* CTA buttons compartidos por HostCard y HotelCard. Cada uno se renderiza
+   sólo si el campo correspondiente tiene valor. */
+export function ContactButtons({
+  phone,
+  email,
+  instagram,
+  link,
+}: {
+  phone?: string | null;
+  email?: string | null;
+  instagram?: string | null;
+  link?: string | null;
+}) {
+  const wa = toWhatsAppHref(phone);
+  const ig = toInstagramHref(instagram);
+  const handle = instagramHandle(instagram);
+  if (!wa && !email && !ig && !link) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 pt-1">
+      {wa && (
+        <a
+          href={wa}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-success)]/15 px-3.5 py-1.5 text-xs font-medium text-[color:var(--color-success)] transition hover:bg-[color:var(--color-success)]/25"
+        >
+          <MessageCircle size={13} strokeWidth={1.75} />
+          WhatsApp
+        </a>
+      )}
+      {ig && (
+        <a
+          href={ig}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-accent)]/15 px-3.5 py-1.5 text-xs font-medium text-[color:var(--color-accent)] transition hover:bg-[color:var(--color-accent)]/25"
+        >
+          <Instagram size={13} strokeWidth={1.75} />
+          {handle ?? "Instagram"}
+        </a>
+      )}
+      {email && (
+        <a
+          href={`mailto:${email}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-border)] bg-white/60 px-3.5 py-1.5 text-xs font-medium text-[color:var(--color-text-primary)] transition hover:border-[color:var(--color-primary)]"
+        >
+          <Mail size={13} strokeWidth={1.75} />
+          Email
+        </a>
+      )}
+      {link && (
+        <a
+          href={/^https?:\/\//i.test(link) ? link : `https://${link}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-border)] bg-white/60 px-3.5 py-1.5 text-xs font-medium text-[color:var(--color-text-primary)] transition hover:border-[color:var(--color-primary)]"
+        >
+          <ExternalLink size={13} strokeWidth={1.75} />
+          Más info
+        </a>
+      )}
+    </div>
+  );
+}
+

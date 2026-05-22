@@ -9,6 +9,9 @@ import {
   ShieldCheck,
   Flag,
   Heart,
+  Sparkles,
+  UserCircle,
+  Crown,
 } from "lucide-react";
 import { isAdmin, isSuperAdmin, type CurrentUser } from "@/shared/auth-roles";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -31,8 +34,16 @@ const adminNav: NavItem[] = [
   { href: "/admin", label: "Resumen", icon: LayoutDashboard },
   { href: "/admin/cabins", label: "Cabañas", icon: Home },
   { href: "/admin/reservations", label: "Reservas", icon: CalendarCheck },
+  { href: "/admin/host-profile", label: "Perfil anfitrión", icon: UserCircle },
+  { href: "/admin/pro-membership", label: "Membresía Pro", icon: Crown },
   { href: "/admin/users", label: "Usuarios", icon: Users, superAdminOnly: true },
   { href: "/admin/appeals", label: "Apelaciones", icon: Flag, superAdminOnly: true },
+  {
+    href: "/admin/landing-atmosphere",
+    label: "Landing",
+    icon: Sparkles,
+    superAdminOnly: true,
+  },
 ];
 
 export function DashboardShell({

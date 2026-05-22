@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
 import { SearchBar } from "@/components/booking/SearchBar";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { AtmosphereParticlesLoader } from "@/components/three/AtmosphereParticlesLoader";
 import { SeasonalAtmosphere } from "@/components/three/SeasonalAtmosphere";
 import { blurDataURL } from "@/lib/images";
 import { getAppDateServer } from "@/modules/demo-tools/date";
@@ -63,12 +62,12 @@ export async function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/10" />
       </div>
 
-      {atmosphereOn &&
-        (season === "summer" ? (
-          <AtmosphereParticlesLoader />
-        ) : (
-          <SeasonalAtmosphere season={season} />
-        ))}
+      {atmosphereOn && (
+        <SeasonalAtmosphere
+          season={season}
+          intensity={landing?.atmosphereIntensity ?? "MEDIUM"}
+        />
+      )}
 
       <div className="container-page flex flex-1 flex-col justify-end gap-10 pt-20">
         <div className="hero-fade-up max-w-3xl space-y-6">

@@ -14,6 +14,7 @@ import { ReviewList, type ReviewItem } from "@/components/reviews/ReviewList";
 import { CabinMap } from "@/components/cabins/CabinMap";
 import { HostCard } from "@/components/cabins/HostCard";
 import { HotelCard } from "@/components/cabins/HotelCard";
+import { HotelRooms } from "@/components/cabins/HotelRooms";
 import { FavoriteButton } from "@/components/cabins/FavoriteButton";
 import { ShareButton } from "@/components/cabins/ShareButton";
 import { isFavorited } from "@/modules/favorites/repo";
@@ -227,6 +228,9 @@ export default async function CabinDetailPage({
             <section className="space-y-4">
               <h2 className="text-2xl font-medium tracking-tight">Tu anfitrión</h2>
               <HostCard host={cabin.hostInfo} />
+              <p className="text-xs text-[color:var(--color-text-muted)]">
+                Datos cargados por el anfitrión desde su panel.
+              </p>
             </section>
           )}
 
@@ -236,6 +240,15 @@ export default async function CabinDetailPage({
               <HotelCard hotel={cabin.hotelInfo} />
             </section>
           )}
+
+          {cabin.propertyType === "HOTEL" &&
+            cabin.rooms &&
+            cabin.rooms.length > 0 && (
+              <HotelRooms
+                rooms={cabin.rooms}
+                fallbackImages={cabin.images}
+              />
+            )}
 
           {cabin.beds.length > 0 && (
             <section className="space-y-4">

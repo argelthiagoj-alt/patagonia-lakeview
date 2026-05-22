@@ -1,7 +1,26 @@
 import { format } from "date-fns";
-import { Star } from "lucide-react";
+import {
+  Star,
+  Sparkles,
+  ShieldCheck,
+  KeyRound,
+  MessageCircle,
+  MapPin,
+  TagsIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { AdminAppealButton } from "@/components/reviews/AdminAppealButton";
+
+// Lucide types son específicos; usamos typeof Sparkles para describir
+// el shape sin chocar con ComponentType<...>.
+const CATEGORY_ICONS: Record<string, typeof Sparkles> = {
+  cleanliness: Sparkles,
+  accuracy: ShieldCheck,
+  checkin: KeyRound,
+  communication: MessageCircle,
+  location: MapPin,
+  value: TagsIcon,
+};
 
 /**
  * ReviewList — diseño inspirado en el desglose de Airbnb pero con la
@@ -101,32 +120,41 @@ export function ReviewList({
         </div>
 
         {averages && (
-          <ul className="grid gap-3 sm:grid-cols-2 sm:gap-x-8">
-            {averages.map((a) => (
-              <li
-                key={a.key}
-                className="grid grid-cols-[1fr_auto] items-center gap-3 sm:grid-cols-[1fr_120px_auto]"
-              >
-                <span className="text-sm text-[color:var(--color-text-primary)]">
-                  {a.label}
-                </span>
-                <span
-                  className="hidden h-1.5 overflow-hidden rounded-full bg-[color:var(--color-border)]/45 sm:block"
-                  aria-hidden="true"
+          <ul className="grid gap-4 sm:grid-cols-2 sm:gap-x-10">
+            {averages.map((a) => {
+              const Icon = CATEGORY_ICONS[a.key] ?? Sparkles;
+              return (
+                <li
+                  key={a.key}
+                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:grid-cols-[auto_1fr_120px_auto] sm:gap-4"
                 >
                   <span
-                    className="block h-full rounded-full bg-[color:var(--color-primary)]"
-                    style={{
-                      width: `${Math.min(100, (a.avg / 5) * 100)}%`,
-                      transition: "width 600ms var(--ease-out-soft)",
-                    }}
-                  />
-                </span>
-                <span className="text-right text-xs font-medium tabular-nums text-[color:var(--color-text-secondary)]">
-                  {a.avg.toFixed(1)}
-                </span>
-              </li>
-            ))}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--color-surface-muted)] text-[color:var(--color-primary)]"
+                    aria-hidden="true"
+                  >
+                    <Icon size={14} strokeWidth={1.5} />
+                  </span>
+                  <span className="text-sm text-[color:var(--color-text-primary)]">
+                    {a.label}
+                  </span>
+                  <span
+                    className="hidden h-1.5 overflow-hidden rounded-full bg-[color:var(--color-border)]/45 sm:block"
+                    aria-hidden="true"
+                  >
+                    <span
+                      className="block h-full rounded-full bg-[color:var(--color-primary)]"
+                      style={{
+                        width: `${Math.min(100, (a.avg / 5) * 100)}%`,
+                        transition: "width 600ms var(--ease-out-soft)",
+                      }}
+                    />
+                  </span>
+                  <span className="text-right text-sm font-medium tabular-nums text-[color:var(--color-text-primary)]">
+                    {a.avg.toFixed(1)}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -93,6 +93,10 @@ export default async function EditCabinPage({
             totalUnits: rt.totalUnits,
             amenities: rt.amenities,
             beds: rt.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
+            images:
+              (rt as { images?: { url: string; alt: string | null }[] }).images?.map(
+                (i) => ({ url: i.url, alt: i.alt ?? "" })
+              ) ?? [],
           })) ?? [],
         }}
       />

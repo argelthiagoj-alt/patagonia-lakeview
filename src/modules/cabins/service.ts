@@ -63,6 +63,14 @@ function normalizeRoomTypes(roomTypes: RoomTypeInput[]) {
     totalUnits: rt.totalUnits,
     amenities: rt.amenities,
     beds: dedupeBeds(rt.beds),
+    images: (rt.images ?? [])
+      .filter((img) => img.url && img.url.length > 0)
+      .slice(0, 15)
+      .map((img, order) => ({
+        url: img.url,
+        alt: img.alt || null,
+        order,
+      })),
   }));
 }
 
@@ -145,6 +153,7 @@ export async function createCabin(
                 totalUnits: rt.totalUnits,
                 amenities: rt.amenities,
                 beds: { create: rt.beds },
+                images: { create: rt.images },
               })),
             },
           }

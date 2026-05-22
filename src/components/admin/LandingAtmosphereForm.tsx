@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Field } from "@/components/ui/Input";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import type {
   LandingConfigRecord,
   SeasonalHeroes,
@@ -150,38 +151,36 @@ export function LandingAtmosphereForm({
 
       <Section title="Imágenes hero por estación">
         <p className="text-xs text-[color:var(--color-text-secondary)]">
-          Si dejás una en blanco, la landing usa la imagen default del
-          módulo seasonal-theme para esa estación.
+          Arrastrá una imagen o hacé click para elegirla. Si dejás una
+          casilla vacía, la landing usa la imagen default del módulo
+          seasonal-theme para esa estación.
         </p>
         <div className="grid gap-5 sm:grid-cols-2">
           {SEASONS.map((s) => (
-            <Field
+            <ImageUploadField
               key={s.key}
               label={`Hero · ${s.label}`}
-              htmlFor={`lc-season-${s.key}`}
-            >
-              <Input
-                id={`lc-season-${s.key}`}
-                value={seasonal[s.key] ?? ""}
-                onChange={(e) =>
-                  setSeasonal((prev) => ({ ...prev, [s.key]: e.target.value }))
-                }
-                placeholder="https://… o /images/…"
-              />
-            </Field>
-          ))}
-          <Field
-            label="Imagen fallback global"
-            htmlFor="lc-fallback"
-            className="sm:col-span-2"
-          >
-            <Input
-              id="lc-fallback"
-              value={fallbackImage}
-              onChange={(e) => setFallbackImage(e.target.value)}
-              placeholder="https://…"
+              value={seasonal[s.key] ?? null}
+              onChange={(next) =>
+                setSeasonal((prev) => {
+                  const copy = { ...prev };
+                  if (next) copy[s.key] = next;
+                  else delete copy[s.key];
+                  return copy;
+                })
+              }
+              aspect="16/9"
             />
-          </Field>
+          ))}
+          <div className="sm:col-span-2">
+            <ImageUploadField
+              label="Imagen fallback global"
+              hint="Se usa cuando la imagen estacional falla o no está cargada."
+              value={fallbackImage || null}
+              onChange={(next) => setFallbackImage(next ?? "")}
+              aspect="16/9"
+            />
+          </div>
         </div>
       </Section>
 

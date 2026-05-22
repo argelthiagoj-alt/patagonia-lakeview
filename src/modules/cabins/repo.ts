@@ -44,6 +44,7 @@ export type CabinView = MockCabin & {
     phone: string | null;
     email: string | null;
     link: string | null;
+    instagram: string | null;
   } | null;
   hotelInfo?: {
     legalName: string | null;
@@ -54,9 +55,22 @@ export type CabinView = MockCabin & {
     phone: string | null;
     email: string | null;
     website: string | null;
+    instagram: string | null;
     receptionHours: string | null;
     generalPolicies: string | null;
   } | null;
+  /** Para HOTEL: lista pública de habitaciones con sus imágenes propias. */
+  rooms?: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    pricePerNight: number;
+    maxGuests: number;
+    totalUnits: number;
+    amenities: string[];
+    beds: { type: string; quantity: number }[];
+    images: { url: string; alt: string }[];
+  }>;
 };
 
 export type ReservationWindow = {
@@ -75,7 +89,43 @@ const includeForCabin = {
   amenities: { include: { amenity: true } },
   beds: true,
   owner: {
-    select: { name: true, adminPlan: true, proUntil: true },
+    select: {
+      name: true,
+      adminPlan: true,
+      proUntil: true,
+      // Perfil host a nivel cuenta — fallback cuando la cabaña no tiene
+      // overrides propios.
+      hostDisplayName: true,
+      hostBio: true,
+      hostPhoto: true,
+      hostCity: true,
+      hostingSince: true,
+      hostPhone: true,
+      hostEmail: true,
+      hostLink: true,
+      hostInstagram: true,
+      // Perfil institucional del hotel a nivel cuenta.
+      hotelLegalName: true,
+      hotelLogo: true,
+      hotelDescription: true,
+      hotelAddress: true,
+      hotelCity: true,
+      hotelPhone: true,
+      hotelEmail: true,
+      hotelWebsite: true,
+      hotelInstagram: true,
+      hotelReceptionHours: true,
+      hotelGeneralPolicies: true,
+    },
+  },
+  // RoomTypes con sus imágenes y camas. Sólo relevante para HOTEL;
+  // en CABIN el array suele venir vacío.
+  roomTypes: {
+    include: {
+      beds: true,
+      images: { orderBy: { order: "asc" } as const },
+    },
+    orderBy: { createdAt: "asc" } as const,
   },
 } satisfies Prisma.CabinInclude;
 
@@ -99,7 +149,31 @@ type Row = {
   images: { url: string; alt: string | null }[];
   amenities: { amenity: { key: string } }[];
   beds: { type: string; quantity: number }[];
-  owner: { name: string | null; adminPlan: string; proUntil: Date | null };
+  owner: {
+    name: string | null;
+    adminPlan: string;
+    proUntil: Date | null;
+    hostDisplayName?: string | null;
+    hostBio?: string | null;
+    hostPhoto?: string | null;
+    hostCity?: string | null;
+    hostingSince?: Date | null;
+    hostPhone?: string | null;
+    hostEmail?: string | null;
+    hostLink?: string | null;
+    hostInstagram?: string | null;
+    hotelLegalName?: string | null;
+    hotelLogo?: string | null;
+    hotelDescription?: string | null;
+    hotelAddress?: string | null;
+    hotelCity?: string | null;
+    hotelPhone?: string | null;
+    hotelEmail?: string | null;
+    hotelWebsite?: string | null;
+    hotelInstagram?: string | null;
+    hotelReceptionHours?: string | null;
+    hotelGeneralPolicies?: string | null;
+  };
   // Marketplace columns (opcionales — pueden no venir si Prisma client está desactualizado).
   propertyType?: "CABIN" | "HOTEL";
   latitude?: number | null;
@@ -109,6 +183,17 @@ type Row = {
   hostPhoto?: string | null;
   hostCity?: string | null;
   hostingSince?: Date | null;
+  roomTypes?: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    pricePerNight: number;
+    maxGuests: number;
+    totalUnits: number;
+    amenities: string[];
+    beds: { type: string; quantity: number }[];
+    images: { url: string; alt: string | null }[];
+  }>;
   hostPhone?: string | null;
   hostEmail?: string | null;
   hostLink?: string | null;
@@ -169,47 +254,53 @@ function mapCabin(row: Row): CabinView {
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
     features: extractFeatures(row),
-    hostInfo:
-      row.hostDisplayName ||
-      row.hostBio ||
-      row.hostPhoto ||
-      row.hostCity ||
-      row.hostPhone ||
-      row.hostEmail ||
-      row.hostLink
-        ? {
-            name: row.hostDisplayName ?? null,
-            bio: row.hostBio ?? null,
-            photo: row.hostPhoto ?? null,
-            city: row.hostCity ?? null,
-            hostingSince: row.hostingSince ?? null,
-            phone: row.hostPhone ?? null,
-            email: row.hostEmail ?? null,
-            link: row.hostLink ?? null,
-          }
-        : null,
-    hotelInfo:
-      row.hotelLegalName ||
-      row.hotelDescription ||
-      row.hotelAddress ||
-      row.hotelPhone ||
-      row.hotelEmail ||
-      row.hotelWebsite ||
-      row.hotelReceptionHours ||
-      row.hotelGeneralPolicies
-        ? {
-            legalName: row.hotelLegalName ?? null,
-            logo: row.hotelLogo ?? null,
-            description: row.hotelDescription ?? null,
-            address: row.hotelAddress ?? null,
-            city: row.hotelCity ?? null,
-            phone: row.hotelPhone ?? null,
-            email: row.hotelEmail ?? null,
-            website: row.hotelWebsite ?? null,
-            receptionHours: row.hotelReceptionHours ?? null,
-            generalPolicies: row.hotelGeneralPolicies ?? null,
-          }
-        : null,
+    // Host info: prioriza overrides de la cabaña; cae al perfil del
+    // owner (configurado en /admin/host-profile); última red de seguridad
+    // = nombre crudo del owner para que la sección "Tu anfitrión" siempre
+    // tenga al menos un autor visible en cada publicación.
+    hostInfo: {
+      name:
+        row.hostDisplayName ?? row.owner.hostDisplayName ?? row.owner.name,
+      bio: row.hostBio ?? row.owner.hostBio ?? null,
+      photo: row.hostPhoto ?? row.owner.hostPhoto ?? null,
+      city: row.hostCity ?? row.owner.hostCity ?? null,
+      hostingSince: row.hostingSince ?? row.owner.hostingSince ?? null,
+      phone: row.hostPhone ?? row.owner.hostPhone ?? null,
+      email: row.hostEmail ?? row.owner.hostEmail ?? null,
+      link: row.hostLink ?? row.owner.hostLink ?? null,
+      instagram: row.owner.hostInstagram ?? null,
+    },
+    rooms: (row.roomTypes ?? []).map((rt) => ({
+      id: rt.id,
+      name: rt.name,
+      description: rt.description,
+      pricePerNight: rt.pricePerNight,
+      maxGuests: rt.maxGuests,
+      totalUnits: rt.totalUnits,
+      amenities: rt.amenities,
+      beds: rt.beds.map((b) => ({ type: b.type, quantity: b.quantity })),
+      images: rt.images.map((i) => ({ url: i.url, alt: i.alt ?? rt.name })),
+    })),
+    // Hotel institucional: mismo patrón, con `legalName` cayendo al
+    // título de la publicación si no hay nada más cargado. Garantiza que
+    // un hotel publicado siempre tenga su tarjeta institucional.
+    hotelInfo: {
+      legalName:
+        row.hotelLegalName ?? row.owner.hotelLegalName ?? row.title,
+      logo: row.hotelLogo ?? row.owner.hotelLogo ?? null,
+      description:
+        row.hotelDescription ?? row.owner.hotelDescription ?? null,
+      address: row.hotelAddress ?? row.owner.hotelAddress ?? null,
+      city: row.hotelCity ?? row.owner.hotelCity ?? row.location,
+      phone: row.hotelPhone ?? row.owner.hotelPhone ?? null,
+      email: row.hotelEmail ?? row.owner.hotelEmail ?? null,
+      website: row.hotelWebsite ?? row.owner.hotelWebsite ?? null,
+      instagram: row.owner.hotelInstagram ?? null,
+      receptionHours:
+        row.hotelReceptionHours ?? row.owner.hotelReceptionHours ?? null,
+      generalPolicies:
+        row.hotelGeneralPolicies ?? row.owner.hotelGeneralPolicies ?? null,
+    },
   };
 }
 
@@ -370,7 +461,13 @@ export function findCabinForEdit(id: string) {
       images: { orderBy: { order: "asc" } },
       amenities: { include: { amenity: true } },
       beds: true,
-      roomTypes: { include: { beds: true }, orderBy: { createdAt: "asc" } },
+      roomTypes: {
+        include: {
+          beds: true,
+          images: { orderBy: { order: "asc" } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 }
@@ -460,6 +557,7 @@ type RoomTypeRow = {
   totalUnits: number;
   amenities: string[];
   beds: BedRow[];
+  images?: { url: string; alt: string | null; order: number }[];
 };
 
 /**
@@ -494,6 +592,9 @@ export function replaceRoomTypes(
           totalUnits: rt.totalUnits,
           amenities: rt.amenities,
           beds: { create: rt.beds },
+          ...(rt.images && rt.images.length
+            ? { images: { create: rt.images } }
+            : {}),
         },
       });
     }

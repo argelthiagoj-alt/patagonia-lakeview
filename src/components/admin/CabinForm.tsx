@@ -29,6 +29,7 @@ import { slugify, cn } from "@/lib/utils";
 import type { Amenity } from "@/data/cabins";
 import { ImageDropzone } from "@/components/admin/cabin-form/ImageDropzone";
 import { ImageUrlField } from "@/components/admin/cabin-form/ImageUrlField";
+import { RoomImagesSubForm } from "@/components/admin/cabin-form/RoomImagesSubForm";
 import {
   IconBtn,
   NumField,
@@ -682,6 +683,11 @@ export function CabinForm({ id, amenities, initial }: Props) {
                     register={register(`roomTypes.${idx}.totalUnits`)}
                   />
                 </div>
+                <RoomImagesSubForm
+                  control={control}
+                  register={register}
+                  index={idx}
+                />
               </div>
             ))}
             <Button
@@ -697,6 +703,7 @@ export function CabinForm({ id, amenities, initial }: Props) {
                   totalUnits: 1,
                   amenities: [],
                   beds: [],
+                  images: [],
                 })
               }
             >

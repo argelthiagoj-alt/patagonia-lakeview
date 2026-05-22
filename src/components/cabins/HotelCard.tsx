@@ -1,5 +1,6 @@
-import { MapPin, Phone, Mail, ExternalLink, Clock, FileText } from "lucide-react";
+import { MapPin, Clock, FileText } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { ContactButtons } from "@/components/cabins/HostCard";
 
 type Hotel = {
   legalName: string | null;
@@ -10,6 +11,7 @@ type Hotel = {
   phone: string | null;
   email: string | null;
   website: string | null;
+  instagram?: string | null;
   receptionHours: string | null;
   generalPolicies: string | null;
 };
@@ -22,16 +24,10 @@ type Hotel = {
  * dejar la página limpia.
  */
 export function HotelCard({ hotel }: { hotel: Hotel }) {
-  const hasAny =
-    hotel.legalName ||
-    hotel.description ||
-    hotel.address ||
-    hotel.phone ||
-    hotel.email ||
-    hotel.website ||
-    hotel.receptionHours ||
-    hotel.generalPolicies;
-  if (!hasAny) return null;
+  // Mismo criterio que HostCard: siempre renderiza algo. Con el fallback
+  // del repo (legalName ← cabin.title, city ← cabin.location) la tarjeta
+  // institucional nunca queda vacía.
+  if (!hotel) return null;
 
   return (
     <article className="surface-paper flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
@@ -67,45 +63,6 @@ export function HotelCard({ hotel }: { hotel: Hotel }) {
               </span>
             </span>
           )}
-          {hotel.phone && (
-            <span className="inline-flex items-start gap-1.5">
-              <Phone size={12} strokeWidth={1.5} className="mt-0.5" />
-              <a
-                href={`tel:${hotel.phone}`}
-                className="hover:text-[color:var(--color-text-primary)]"
-              >
-                {hotel.phone}
-              </a>
-            </span>
-          )}
-          {hotel.email && (
-            <span className="inline-flex items-start gap-1.5">
-              <Mail size={12} strokeWidth={1.5} className="mt-0.5" />
-              <a
-                href={`mailto:${hotel.email}`}
-                className="hover:text-[color:var(--color-text-primary)]"
-              >
-                {hotel.email}
-              </a>
-            </span>
-          )}
-          {hotel.website && (
-            <span className="inline-flex items-start gap-1.5">
-              <ExternalLink size={12} strokeWidth={1.5} className="mt-0.5" />
-              <a
-                href={
-                  /^https?:\/\//i.test(hotel.website)
-                    ? hotel.website
-                    : `https://${hotel.website}`
-                }
-                target="_blank"
-                rel="noreferrer noopener"
-                className="hover:text-[color:var(--color-text-primary)]"
-              >
-                {hotel.website.replace(/^https?:\/\//, "")}
-              </a>
-            </span>
-          )}
           {hotel.receptionHours && (
             <span className="inline-flex items-start gap-1.5">
               <Clock size={12} strokeWidth={1.5} className="mt-0.5" />
@@ -113,6 +70,13 @@ export function HotelCard({ hotel }: { hotel: Hotel }) {
             </span>
           )}
         </div>
+
+        <ContactButtons
+          phone={hotel.phone}
+          email={hotel.email}
+          instagram={hotel.instagram}
+          link={hotel.website}
+        />
 
         {hotel.generalPolicies && (
           <details className="group rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)]/45 p-3 text-xs text-[color:var(--color-text-secondary)]">

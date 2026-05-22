@@ -48,7 +48,7 @@ export function Logo({
             : "bg-[color:var(--color-surface)] ring-[color:var(--color-border)]"
         )}
         style={{
-          transition: "box-shadow 700ms var(--ease-out-soft)",
+          transition: "box-shadow 800ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
         <Image
@@ -66,7 +66,7 @@ export function Logo({
             filter: tint
               ? "sepia(0.85) saturate(1.25) hue-rotate(-12deg) brightness(0.78)"
               : "none",
-            transition: "filter 700ms var(--ease-out-soft)",
+            transition: "filter 800ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         />
       </span>
@@ -74,7 +74,7 @@ export function Logo({
         className="flex flex-col leading-none"
         style={{
           color: tint ? "var(--color-secondary)" : undefined,
-          transition: "color 700ms var(--ease-out-soft)",
+          transition: "color 800ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
         <span

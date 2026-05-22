@@ -82,6 +82,21 @@ const featuresShape = Object.fromEntries(
 export const featuresSchema = z.object(featuresShape);
 export type FeaturesInput = z.infer<typeof featuresSchema>;
 
+export const roomImageSchema = z.object({
+  url: z
+    .string()
+    .min(1, "URL requerida")
+    .refine(
+      (v) =>
+        v.startsWith("data:image/") ||
+        /^https?:\/\//i.test(v) ||
+        v.startsWith("/"),
+      "Debe ser una URL https://, una ruta /local o una imagen subida"
+    ),
+  alt: z.string().max(180).optional().nullable(),
+});
+export type RoomImageInput = z.infer<typeof roomImageSchema>;
+
 export const roomTypeSchema = z.object({
   id: z.string().optional(), // present cuando se edita un room existente
   name: z.string().min(2).max(80),
@@ -99,6 +114,7 @@ export const roomTypeSchema = z.object({
     )
     .max(8)
     .default([]),
+  images: z.array(roomImageSchema).max(15).default([]),
 });
 export type RoomTypeInput = z.infer<typeof roomTypeSchema>;
 
