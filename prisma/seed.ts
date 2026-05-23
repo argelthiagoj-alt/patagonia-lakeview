@@ -1,8 +1,96 @@
-import { PrismaClient, UserRole } from "@prisma/client";
+import { PrismaClient, UserRole, TourismType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { cabins as cabinSeed, amenityLabels } from "../src/data/cabins";
 
 const prisma = new PrismaClient();
+
+// ─────────────── Destinations seed data ───────────────
+const DESTINATION_SEEDS: Array<{
+  slug: string;
+  name: string;
+  tagline: string;
+  shortDescription: string;
+  longDescription: string;
+}> = [
+  {
+    slug: "bariloche",
+    name: "Bariloche",
+    tagline: "El lago, la montaña, la postal clásica.",
+    shortDescription: "Aire frío, agua transparente, chocolate y bosques.",
+    longDescription:
+      "San Carlos de Bariloche es la puerta a la cordillera. Aire frío, agua transparente, chocolate y bosques de coihue. Buena base para senderos a media tarde y vueltas en lancha al atardecer.",
+  },
+  {
+    slug: "villa-la-angostura",
+    name: "Villa La Angostura",
+    tagline: "Bosque arrayanes y costas calmas.",
+    shortDescription: "Pueblo de cordillera, calma y arrayanes.",
+    longDescription:
+      "Más tranquila que Bariloche, conserva el carácter de pueblo de cordillera. Caminatas suaves entre arrayanes, lecturas largas, atardeceres sin apuro.",
+  },
+  {
+    slug: "el-bolson",
+    name: "El Bolsón",
+    tagline: "Valles tibios y feria los sábados.",
+    shortDescription: "Microclima cálido y alma artesanal.",
+    longDescription:
+      "Microclima más cálido y un alma artesanal. Cervezas locales, frutas finas y vistas al cerro Piltriquitrón.",
+  },
+  {
+    slug: "san-martin-de-los-andes",
+    name: "San Martín de los Andes",
+    tagline: "Lago Lácar, ruta de los Siete Lagos.",
+    shortDescription: "Punta norte de los Siete Lagos.",
+    longDescription:
+      "Punta norte de la ruta de los Siete Lagos. Esquí en invierno, Lanín en primavera y verano, base ideal para todo el norte de la cordillera.",
+  },
+];
+
+const TOURISM_ITEM_SEEDS: Array<{
+  destinationSlug: string;
+  slug: string;
+  title: string;
+  description: string;
+  type: TourismType;
+  duration?: string;
+}> = [
+  {
+    destinationSlug: "bariloche",
+    slug: "circuito-chico",
+    title: "Circuito Chico en bici",
+    description:
+      "Vuelta clásica de unos 27 km bordeando lagos y miradores. Ideal para empezar a entender la geografía.",
+    type: "ADVENTURE",
+    duration: "Media jornada",
+  },
+  {
+    destinationSlug: "el-bolson",
+    slug: "ahumados-y-cervezas",
+    title: "Ahumados, chacras y cervezas",
+    description:
+      "Recorrido por productores chicos del valle: trucha ahumada, cervezas artesanales y dulces de frutos rojos.",
+    type: "RESTAURANT",
+    duration: "Tarde",
+  },
+  {
+    destinationSlug: "villa-la-angostura",
+    slug: "bosque-arrayanes",
+    title: "Caminata por el bosque de arrayanes",
+    description:
+      "Trekking suave por uno de los pocos bosques puros de arrayanes del mundo.",
+    type: "TRAIL",
+    duration: "Media jornada",
+  },
+  {
+    destinationSlug: "san-martin-de-los-andes",
+    slug: "siete-lagos",
+    title: "Ruta de los Siete Lagos en auto",
+    description:
+      "Tramo escénico Villa La Angostura ↔ San Martín. Tres paradas obligatorias para fotos.",
+    type: "ADVENTURE",
+    duration: "Día completo",
+  },
+];
 
 const reviewsByCabinSlug: Record<
   string,
@@ -414,6 +502,58 @@ async function main() {
   }
 
   console.log(`  ✓ Sample reservations + payments created`);
+
+  // ─────────────── Destinations seed ───────────────
+  // Idempotente (upsert por slug). El SUPER_ADMIN puede editar/borrar
+  // todo después desde /admin/city-guide.
+  for (const [order, d] of DESTINATION_SEEDS.entries()) {
+    await prisma.destination.upsert({
+      where: { slug: d.slug },
+      update: {
+        name: d.name,
+        tagline: d.tagline,
+        shortDescription: d.shortDescription,
+        longDescription: d.longDescription,
+        order,
+      },
+      create: {
+        slug: d.slug,
+        name: d.name,
+        tagline: d.tagline,
+        shortDescription: d.shortDescription,
+        longDescription: d.longDescription,
+        order,
+      },
+    });
+  }
+  for (const item of TOURISM_ITEM_SEEDS) {
+    const dest = await prisma.destination.findUnique({
+      where: { slug: item.destinationSlug },
+    });
+    if (!dest) continue;
+    await prisma.tourismItem.upsert({
+      where: {
+        destinationId_slug: { destinationId: dest.id, slug: item.slug },
+      },
+      update: {
+        title: item.title,
+        description: item.description,
+        type: item.type,
+        duration: item.duration ?? null,
+      },
+      create: {
+        destinationId: dest.id,
+        slug: item.slug,
+        title: item.title,
+        description: item.description,
+        type: item.type,
+        duration: item.duration ?? null,
+      },
+    });
+  }
+  console.log(
+    `  ✓ Destinations seed: ${DESTINATION_SEEDS.length} ciudades · ${TOURISM_ITEM_SEEDS.length} lugares`
+  );
 
   console.log(`
 ✨ Seed complete · Demo password for every account: ${DEMO_PASSWORD}

@@ -12,6 +12,7 @@ import {
   Sparkles,
   UserCircle,
   Crown,
+  Compass,
 } from "lucide-react";
 import { isAdmin, isSuperAdmin, type CurrentUser } from "@/shared/auth-roles";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -42,6 +43,12 @@ const adminNav: NavItem[] = [
     href: "/admin/landing-atmosphere",
     label: "Landing",
     icon: Sparkles,
+    superAdminOnly: true,
+  },
+  {
+    href: "/admin/city-guide",
+    label: "Guía de destinos",
+    icon: Compass,
     superAdminOnly: true,
   },
 ];

@@ -536,3 +536,140 @@ model LandingConfig {
   updatedAt         DateTime @updatedAt
   updatedById       String?
 }
+
+
+// ─────────────── Destinations (city-guide v2) ───────────────
+
+enum TourismType {
+  TRAIL        // Senderos
+  RESTAURANT   // Restaurantes
+  SKI_RENTAL   // Alquiler de ski / outdoor
+  ADVENTURE    // Aventuras / expediciones
+  KEY_PLACE    // Lugares clave / bienestar
+  STORE        // Tiendas
+}
+
+/// Ciudad turística publicable. Las "secciones" son `TourismItem`
+/// agrupados por `type` — modelo plano, menos joins.
+model Destination {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  /// Frase corta para badges / eyebrow.
+  tagline          String?
+  /// Resumen para card en /destinos (1-2 líneas).
+  shortDescription String?
+  /// Cuerpo principal de la página de ciudad.
+  longDescription  String
+  bannerImage      String?
+  galleryImages    String[]      @default([])
+  latitude         Float?
+  longitude        Float?
+  isPublished      Boolean       @default(true)
+  order            Int           @default(0)
+  items            TourismItem[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+/// Una publicación turística: sendero, restaurante, agencia, tienda, etc.
+/// Pertenece a UNA ciudad (no se mezclan contenidos entre destinos).
+/// Los campos específicos por `type` viven todos en este modelo como
+/// columnas opcionales — más simple y rápido que polimorfismo Prisma.
+model TourismItem {
+  id            String      @id @default(cuid())
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  type          TourismType
+
+  // Identidad pública
+  title         String
+  slug          String
+  description   String
+  mainImage     String?
+  images        TourismItemImage[]
+  locationName  String?
+  address       String?
+  latitude      Float?
+  longitude     Float?
+
+  // Estado editorial
+  featured      Boolean     @default(false)
+  isPublished   Boolean     @default(true)
+  order         Int         @default(0)
+
+  // Contactos (compartidos por casi todos los `type`)
+  phone         String?
+  website       String?
+  instagram     String?
+  contact       String?   // free-form (whatsapp, mail) usado por aventuras / ski / stores
+  openingHours  String?
+
+  // TRAIL
+  lengthKm      Float?
+  elevation     Int?
+  difficulty    String?   // también ADVENTURE
+  duration      String?   // también ADVENTURE
+  idealSeason   String?   // también ADVENTURE
+
+  // RESTAURANT
+  specialty     String?
+  priceRange    String?
+
+  // RESTAURANT / SKI_RENTAL / STORE
+  rating        Float?
+
+  // SKI_RENTAL
+  equipmentTypes String[] @default([])
+
+  // ADVENTURE
+  experienceType String?
+  meetingPoint   String?
+
+  // KEY_PLACE → relación a categoría editable
+  keyPlaceCategoryId String?
+  keyPlaceCategory   KeyPlaceCategory? @relation(fields: [keyPlaceCategoryId], references: [id], onDelete: SetNull)
+
+  // STORE → relación a tipo de tienda editable
+  storeTypeId   String?
+  storeType     StoreType? @relation(fields: [storeTypeId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([destinationId, slug])
+  @@index([destinationId, type])
+  @@index([destinationId, featured])
+}
+
+model TourismItemImage {
+  id            String      @id @default(cuid())
+  tourismItemId String
+  tourismItem   TourismItem @relation(fields: [tourismItemId], references: [id], onDelete: Cascade)
+  url           String
+  alt           String?
+  order         Int         @default(0)
+
+  @@index([tourismItemId])
+}
+
+/// Categorías editables de "lugares clave / bienestar" (spa, mirador,
+/// mindfulness, etc.). FK opcional desde TourismItem.
+model KeyPlaceCategory {
+  id        String        @id @default(cuid())
+  slug      String        @unique
+  name      String
+  items     TourismItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+/// Tipos editables de tienda (deportes, artesanías, gourmet, etc.).
+model StoreType {
+  id        String        @id @default(cuid())
+  slug      String        @unique
+  name      String
+  items     TourismItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
